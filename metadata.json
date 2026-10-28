@@ -1,0 +1,6 @@
+{
+  "name": "ARAFAT GAMING - Free Fire Diamond Top-Up Shop",
+  "description": "Personal Free Fire Diamond Top-Up platform in Bangladesh with bKash and Nagad payments, UID-only security, live order tracking, and admin management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

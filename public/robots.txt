@@ -1,0 +1,13 @@
+# robots.txt for ARAFAT GAMING — Free Fire Diamond Top-Up Bangladesh
+User-agent: *
+Allow: /
+Allow: /#packages
+Allow: /#how-to-order
+Allow: /#payment-methods
+Allow: /#track-order
+Allow: /#contact
+Disallow: /admin
+Disallow: /?admin=true
+
+# Host & Sitemap
+Sitemap: /sitemap.xml
