@@ -6,17 +6,22 @@ import {
   OrderStatus,
   PaymentMethod,
   SiteConfig,
+  StreamingServiceItem,
+  StreamingSubscription,
 } from './types';
 import {
   DEFAULT_SITE_CONFIG,
   INITIAL_ORDERS,
   INITIAL_PACKAGES,
+  INITIAL_STREAMING_CATALOG,
 } from './data/initialData';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { PaymentBanner } from './components/PaymentBanner';
 import { DiamondPackages } from './components/DiamondPackages';
-import { OrderModal } from './components/OrderModal';
+import { SocialFollowersSection } from './components/SocialFollowersSection';
+import { StreamingSubscriptions } from './components/StreamingSubscriptions';
+import { ActiveOrderSelection, OrderModal } from './components/OrderModal';
 import { OrderTracker } from './components/OrderTracker';
 import { HowToOrder } from './components/HowToOrder';
 import { PaymentGuide } from './components/PaymentGuide';
@@ -32,11 +37,13 @@ const STORAGE_KEYS = {
   ORDERS: 'arafat_gaming_orders_v2',
   CONFIG: 'arafat_gaming_config_v1',
   LANG: 'arafat_gaming_lang_v1',
+  STREAMING: 'arafat_gaming_streaming_services_v1',
 };
 
 function MainApp() {
   const { showToast, notifyOrderStatusChange } = useToast();
-  // Clear any legacy v1 cached packages with old prices
+
+  // Clear any legacy cached packages with old prices
   useEffect(() => {
     try {
       localStorage.removeItem('arafat_gaming_packages_v1');
@@ -63,7 +70,7 @@ function MainApp() {
     }
   });
 
-  // 3. Diamond Packages state (Defaults to updated INITIAL_PACKAGES)
+  // 3. Diamond Packages state
   const [packages, setPackages] = useState<DiamondPackage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PACKAGES);
@@ -83,10 +90,21 @@ function MainApp() {
     }
   });
 
+  // 5. Streaming & OTT Services state
+  const [streamingServices, setStreamingServices] = useState<StreamingServiceItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.STREAMING);
+      return saved ? JSON.parse(saved) : INITIAL_STREAMING_CATALOG;
+    } catch {
+      return INITIAL_STREAMING_CATALOG;
+    }
+  });
+
   // Navigation & Modals
   const [activeTab, setActiveTab] = useState<string>('home');
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<DiamondPackage | null>(null);
+  const [activeSelection, setActiveSelection] = useState<ActiveOrderSelection | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('bkash');
   const [trackingSearchId, setTrackingSearchId] = useState<string>('');
   const [adminOpen, setAdminOpen] = useState(false);
@@ -120,20 +138,38 @@ function MainApp() {
     } catch {}
   }, [orders]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.STREAMING, JSON.stringify(streamingServices));
+    } catch {}
+  }, [streamingServices]);
+
   // Dynamic SEO Synchronization per section & language
   useEffect(() => {
     const SEO_CONFIG: Record<string, { titleBn: string; titleEn: string; descBn: string; descEn: string }> = {
       home: {
-        titleBn: 'ARAFAT GAMING | Free Fire Diamond Top-Up Bangladesh',
-        titleEn: 'ARAFAT GAMING | Free Fire Diamond Top-Up Bangladesh',
-        descBn: 'বাংলাদেশের বিশ্বস্ত ফ্রি ফায়ার ডায়মন্ড টপ-আপ শপ। বিকাশ ও নগদ পার্সোনাল দিয়ে দ্রুত ও নিরাপদে শুধুমাত্র Player UID দিয়ে ডায়মন্ড টপ-আপ করুন। ডেলিভারি ৫-১৫ মিনিট।',
-        descEn: 'Trusted Free Fire diamond top-up in Bangladesh. Fast, secure UID top-up via bKash & Nagad. 5-15 min delivery, 100% safe.',
+        titleBn: 'ARAFAT GAMING | Free Fire Top-Up, FB Followers & OTT Subscriptions',
+        titleEn: 'ARAFAT GAMING | Free Fire Top-Up, FB Followers & OTT Subscriptions',
+        descBn: 'বাংলাদেশের বিশ্বস্ত ডিজিটাল সার্ভিস শপ। ফ্রি ফায়ার ডায়মন্ড, ফেসবুক ফলোয়ার্স এবং নেটফ্লিক্স ও ক্রাঞ্চিরোল ওটিটি সাবস্ক্রিপশন নিন সবচেয়ে কম মূল্যে।',
+        descEn: 'Trusted Free Fire diamond top-up, high-retention Facebook followers, and Netflix/Crunchyroll streaming subscriptions in Bangladesh.',
       },
       packages: {
         titleBn: 'ডায়মন্ড প্যাকেজসমূহ ও দাম | ARAFAT GAMING - Free Fire BD',
         titleEn: 'Free Fire Diamond Packages & Prices in BD | ARAFAT GAMING',
         descBn: 'ফ্রি ফায়ার ডায়মন্ড প্যাকেজের সর্বশেষ আপডেট মূল্য তালিকা। ১ ডায়মন্ড থেকে ২১৮০ ডায়মন্ড এবং উইকলি ও মান্থলি মেম্বারশিপ সাশ্রয়ী মূল্যে কিনুন।',
         descEn: 'Check latest Free Fire diamond package prices in Bangladesh. Regular diamonds, Weekly and Monthly VIP memberships with instant UID top-up.',
+      },
+      'facebook-followers': {
+        titleBn: 'ফেসবুক ফলোয়ার্স ক্যালকুলেটর ও মূল্য | ARAFAT GAMING BD',
+        titleEn: 'Facebook Followers & Price Calculator | ARAFAT GAMING',
+        descBn: 'আপনার ফেসবুক পেজ বা প্রোফাইলের জন্য ১,০০০ থেকে ১,০০,০০০ পর্যন্ত রিয়েল ফলোয়ার্স লাইভ হিসাব করে অর্ডার করুন।',
+        descEn: 'Calculate and order 1,000 to 100,000 Facebook followers for page or profile with instant delivery in Bangladesh.',
+      },
+      'streaming-subscriptions': {
+        titleBn: 'নেটফ্লিক্স, ক্রাঞ্চিরোল ও ওটিটি সাবস্ক্রিপশন | ARAFAT GAMING',
+        titleEn: 'Netflix, Crunchyroll Anime & OTT Subscriptions | ARAFAT GAMING',
+        descBn: 'নেটফ্লিক্স ৪K আল্ট্রা এইচডি, ক্রাঞ্চিরোল অ্যানিমে মেগা ফ্যান, স্পটিফাই ও ইউটিউব প্রিমিয়াম সাশ্রয়ী মূল্যে কিনুন ফুল রিপ্লেসমেন্ট ওয়ারেন্টি সহ।',
+        descEn: 'Buy genuine Netflix 4K, Crunchyroll anime pass, Spotify and YouTube Premium with replacement warranty in BD.',
       },
       'how-to-order': {
         titleBn: 'কীভাবে অর্ডার করবেন? (টপ-আপ গাইড) | ARAFAT GAMING',
@@ -142,10 +178,10 @@ function MainApp() {
         descEn: 'Step-by-step guide on how to order Free Fire diamonds using bKash and Nagad personal Send Money.',
       },
       payment: {
-        titleBn: 'পেমেন্ট নির্দেশিকা (বিকাশ ও নগদ) | ARAFAT GAMING',
-        titleEn: 'bKash & Nagad Payment Guide | ARAFAT GAMING',
-        descBn: 'বিকাশ ও নগদ পার্সোনাল নম্বরে (01575630127) কীভাবে Send Money করবেন এবং TrxID পাবেন তার বিস্তারিত নির্দেশিকা।',
-        descEn: 'Detailed instructions to Send Money to our official bKash & Nagad personal numbers and retrieve Transaction ID.',
+        titleBn: 'পেমেন্ট নির্দেশিকা (বিকাশ, নগদ ও রকেট) | ARAFAT GAMING',
+        titleEn: 'bKash, Nagad & Rocket Payment Guide | ARAFAT GAMING',
+        descBn: 'বিকাশ, নগদ ও রকেট পার্সোনাল নম্বরে (01575630127) কীভাবে Send Money করবেন এবং TrxID পাবেন তার বিস্তারিত নির্দেশিকা।',
+        descEn: 'Detailed instructions to Send Money to our official bKash, Nagad, and Rocket numbers and retrieve Transaction ID.',
       },
       track: {
         titleBn: 'অর্ডার ট্র্যাকিং (রিয়েল-টাইম স্ট্যাটাস) | ARAFAT GAMING',
@@ -217,6 +253,8 @@ function MainApp() {
     const sectionMap: Record<string, string> = {
       home: 'hero-top',
       packages: 'diamond-packages',
+      'facebook-followers': 'facebook-followers',
+      'streaming-subscriptions': 'streaming-subscriptions',
       'how-to-order': 'how-to-order',
       payment: 'payment-methods',
       contact: 'contact',
@@ -232,27 +270,40 @@ function MainApp() {
   const handleSubmitOrder = async (
     orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'adminNote'>
   ): Promise<string> => {
-    // Generate unique Order ID
     const randomNum = Math.floor(100000 + Math.random() * 900000);
-    const newOrderId = `AG-${randomNum}`;
+    const prefix =
+      orderData.serviceType === 'facebook_followers'
+        ? 'FB'
+        : orderData.serviceType === 'instagram_followers'
+        ? 'IG'
+        : orderData.serviceType === 'streaming_subscription'
+        ? 'SUB'
+        : 'AG';
+    const newOrderId = `${prefix}-${randomNum}`;
     const now = new Date().toISOString();
 
     const newOrder: Order = {
       ...orderData,
       id: newOrderId,
-      status: 'pending',
+      status: orderData.isAutomatedPayment ? 'processing' : 'pending',
       createdAt: now,
       updatedAt: now,
-      adminNote: 'অর্ডার পেন্ডিং আছে। TrxID যাচাই করার পর ডায়মন্ড পাঠানো হবে।',
+      adminNote: orderData.isAutomatedPayment
+        ? `bKash Tokenized PGW পেমেন্ট সফল (TrxID: ${orderData.trxId})। সিস্টেম কর্তৃক ভেরিফাইড এবং প্রসেসিং শুরু হয়েছে।`
+        : orderData.serviceType === 'facebook_followers'
+        ? 'ফেসবুক ফলোয়ার্স অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
+        : orderData.serviceType === 'streaming_subscription'
+        ? 'সাবস্ক্রিপশন অর্ডার পেন্ডিং আছে। TrxID যাচাই করে অ্যাকাউন্ট ক্রেডেনশিয়াল পাঠানো হবে।'
+        : 'অর্ডার পেন্ডিং আছে। TrxID যাচাই করার পর ডায়মন্ড পাঠানো হবে।',
     };
 
     setOrders((prev) => [newOrder, ...prev]);
 
     // Instant toast notification for customer
     showToast({
-      title: `অর্ডার সফলভাবে জমা হয়েছে!`,
-      message: `Order ID: ${newOrderId} · আপনার ${orderData.packageNameBn || orderData.packageName} পেমেন্ট ভেরিফাই করে ৫–১৫ মিনিটের মধ্যে ডায়মন্ড পাঠানো হবে।`,
-      status: 'pending',
+      title: orderData.isAutomatedPayment ? 'bKash পেমেন্ট সফল ও অর্ডার গৃহীত!' : 'অর্ডার সফলভাবে জমা হয়েছে!',
+      message: `Order ID: ${newOrderId} · আপনার ${orderData.packageNameBn || orderData.packageName} ${orderData.isAutomatedPayment ? 'স্বয়ংক্রিয়ভাবে ভেরিফাইড হয়েছে এবং ডেলিভারি প্রক্রিয়ায় রয়েছে।' : 'পেমেন্ট ভেরিফাই করে দ্রুত ডেলিভারি দেওয়া হবে।'}`,
+      status: orderData.isAutomatedPayment ? 'processing' : 'pending',
       type: 'success',
       duration: 8000,
       action: {
@@ -324,9 +375,76 @@ function MainApp() {
     setConfig((prev) => ({ ...prev, ...newConfig }));
   };
 
-  // Open modal preselected with package
+  const handleUpdateStreamingService = (updated: StreamingServiceItem) => {
+    setStreamingServices((prev) =>
+      prev.map((s) => (s.id === updated.id ? updated : s))
+    );
+  };
+
+  const handleAddStreamingService = (newService: StreamingServiceItem) => {
+    setStreamingServices((prev) => [...prev, newService]);
+  };
+
+  const handleDeleteStreamingService = (id: string) => {
+    setStreamingServices((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
+  const handleResetToDefaults = () => {
+    setPackages(INITIAL_PACKAGES);
+    setConfig(DEFAULT_SITE_CONFIG);
+    setStreamingServices(INITIAL_STREAMING_CATALOG);
+    try {
+      localStorage.setItem(STORAGE_KEYS.PACKAGES, JSON.stringify(INITIAL_PACKAGES));
+      localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(DEFAULT_SITE_CONFIG));
+      localStorage.setItem(STORAGE_KEYS.STREAMING, JSON.stringify(INITIAL_STREAMING_CATALOG));
+    } catch {}
+  };
+
+  // Open modal preselected with package (Free Fire)
   const handleSelectPackageForOrder = (pkg: DiamondPackage) => {
     setSelectedPackage(pkg);
+    setActiveSelection({
+      serviceType: 'free_fire',
+      diamondPackage: pkg,
+    });
+    setOrderModalOpen(true);
+  };
+
+  // Open modal for Facebook Followers
+  const handleOrderFacebookFollowers = (followersCount: number, priceBdt: number, profileLink: string) => {
+    setSelectedPackage(null);
+    setActiveSelection({
+      serviceType: 'facebook_followers',
+      followerCount: followersCount,
+      followerPriceBdt: priceBdt,
+      profileLink,
+    });
+    setOrderModalOpen(true);
+  };
+
+  // Open modal for Instagram Followers
+  const handleOrderInstagramFollowers = (followersCount: number, priceBdt: number, profileLink: string) => {
+    setSelectedPackage(null);
+    setActiveSelection({
+      serviceType: 'instagram_followers',
+      followerCount: followersCount,
+      followerPriceBdt: priceBdt,
+      profileLink,
+    });
+    setOrderModalOpen(true);
+  };
+
+  // Open modal for Streaming Subscriptions
+  const handleOrderSubscription = (sub: StreamingSubscription) => {
+    setSelectedPackage(null);
+    setActiveSelection({
+      serviceType: 'streaming_subscription',
+      subscription: sub,
+    });
     setOrderModalOpen(true);
   };
 
@@ -354,6 +472,7 @@ function MainApp() {
         onSelectTab={handleSelectTab}
         onOpenOrderModal={() => {
           setSelectedPackage(null);
+          setActiveSelection({ serviceType: 'free_fire' });
           setOrderModalOpen(true);
         }}
         onOpenTrack={() => {
@@ -378,21 +497,36 @@ function MainApp() {
           }}
         />
 
-        {/* 2. Payment Methods Banner (bKash & Nagad Personal) */}
+        {/* 2. Payment Methods Banner (bKash, Nagad, Rocket & Bank/Card) */}
         <PaymentBanner
           lang={lang}
           config={config}
           onSelectPaymentMethodForOrder={handleSelectPaymentMethodForOrder}
         />
 
-        {/* 3. Diamond Packages Showcase */}
+        {/* 3. Diamond Packages Showcase (Free Fire) */}
         <DiamondPackages
           packages={packages}
           lang={lang}
           onSelectPackage={handleSelectPackageForOrder}
         />
 
-        {/* 4. Real-time Order Tracking */}
+        {/* 4. Social Media Followers Section (Facebook & Instagram) */}
+        <SocialFollowersSection
+          lang={lang}
+          config={config}
+          onOrderFacebookFollowers={handleOrderFacebookFollowers}
+          onOrderInstagramFollowers={handleOrderInstagramFollowers}
+        />
+
+        {/* 5. Social Media & Streaming Subscription Section */}
+        <StreamingSubscriptions
+          lang={lang}
+          streamingServices={streamingServices}
+          onOrderSubscription={handleOrderSubscription}
+        />
+
+        {/* 6. Real-time Order Tracking */}
         <OrderTracker
           orders={orders}
           lang={lang}
@@ -400,7 +534,7 @@ function MainApp() {
           initialSearchId={trackingSearchId}
         />
 
-        {/* 5. How to Order Guide */}
+        {/* 7. How to Order Guide */}
         <HowToOrder
           lang={lang}
           onGoToPackages={() => {
@@ -409,18 +543,19 @@ function MainApp() {
           }}
           onOpenOrderModal={() => {
             setSelectedPackage(null);
+            setActiveSelection({ serviceType: 'free_fire' });
             setOrderModalOpen(true);
           }}
         />
 
-        {/* 6. Payment Instructions */}
+        {/* 8. Payment Instructions */}
         <PaymentGuide
           lang={lang}
           config={config}
           onOpenOrderModal={() => setOrderModalOpen(true)}
         />
 
-        {/* 7. Contact Section */}
+        {/* 9. Contact Section */}
         <ContactSection lang={lang} config={config} />
       </main>
 
@@ -437,11 +572,11 @@ function MainApp() {
         {/* WhatsApp Chat Floating */}
         <a
           href={`https://wa.me/88${config.whatsappNumber}?text=${encodeURIComponent(
-            'আসসালামু আলাইকুম, আমি আরাফাত গেমিং থেকে ফ্রি ফায়ার ডায়মন্ড নিতে চাই।'
+            'আসসালামু আলাইকুম, আমি আরাফাত গেমিং থেকে সার্ভিস অর্ডার করতে চাই।'
           )}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-950 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+          className="w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-950 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 cursor-pointer"
           title="WhatsApp Helpline"
         >
           <MessageCircle className="w-6 h-6" />
@@ -451,39 +586,49 @@ function MainApp() {
         <button
           onClick={() => {
             setSelectedPackage(null);
+            setActiveSelection({ serviceType: 'free_fire' });
             setOrderModalOpen(true);
           }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs sm:text-sm shadow-xl shadow-purple-950 hover:from-purple-500 hover:to-indigo-500 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 text-white font-bold text-xs sm:text-sm shadow-xl shadow-purple-950 hover:opacity-95 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
         >
           <ShoppingBag className="w-4 h-4" />
-          <span>টপ-আপ অর্ডার</span>
+          <span>{lang === 'bn' ? 'অর্ডার করুন' : 'Order Now'}</span>
         </button>
       </div>
 
-      {/* Top-Up Order Modal */}
+      {/* Unified Digital Checkout Order Modal */}
       <OrderModal
         isOpen={orderModalOpen}
         onClose={() => setOrderModalOpen(false)}
+        lang={lang}
         packages={packages}
         selectedPackage={selectedPackage}
+        activeSelection={activeSelection}
+        streamingServices={streamingServices}
         initialPaymentMethod={selectedPaymentMethod}
         config={config}
         onSubmitOrder={handleSubmitOrder}
         onNavigateToTracking={handleNavigateToTracking}
       />
 
-      {/* Admin Panel Modal */}
+      {/* Comprehensive Admin Panel Modal */}
       {adminOpen && (
         <AdminPanel
           orders={orders}
           packages={packages}
+          streamingServices={streamingServices}
           config={config}
           lang={lang}
           onUpdateOrderStatus={handleUpdateOrderStatus}
+          onDeleteOrder={handleDeleteOrder}
           onUpdatePackage={handleUpdatePackage}
           onAddPackage={handleAddPackage}
           onDeletePackage={handleDeletePackage}
+          onUpdateStreamingService={handleUpdateStreamingService}
+          onAddStreamingService={handleAddStreamingService}
+          onDeleteStreamingService={handleDeleteStreamingService}
           onUpdateConfig={handleUpdateConfig}
+          onResetToDefaults={handleResetToDefaults}
           onClose={() => setAdminOpen(false)}
         />
       )}
