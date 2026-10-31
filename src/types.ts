@@ -1,12 +1,34 @@
 export type Language = 'bn' | 'en';
 
-export type PaymentMethod = 'bkash' | 'nagad';
+export type PaymentMethod = 'bkash' | 'nagad' | 'wallet';
 
 export type OrderStatus = 'pending' | 'processing' | 'completed' | 'rejected';
 
 export type PackageCategory = 'diamond' | 'membership' | 'special';
 
 export type ServiceType = 'free_fire' | 'facebook_followers' | 'instagram_followers' | 'streaming_subscription';
+
+export interface UserWallet {
+  phone: string;
+  name?: string;
+  balance: number; // In AG Coins / BDT (1 AG Coin = ৳1 BDT)
+}
+
+export type AddMoneyStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AddMoneyRequest {
+  id: string;
+  userPhone: string;
+  userName?: string;
+  amountBdt: number;
+  paymentMethod: 'bkash' | 'nagad';
+  senderNumber: string;
+  trxId: string;
+  status: AddMoneyStatus;
+  createdAt: string;
+  updatedAt: string;
+  adminNote?: string;
+}
 
 export interface DiamondPackage {
   id: string;
@@ -73,7 +95,7 @@ export interface FollowerCalculation {
 export interface Order {
   id: string;
   serviceType?: ServiceType;
-  playerUid: string; // Used for FF UID or Social Profile link or Subscription Account
+  playerUid: string; // Used for FF Game UID or Social Profile link or Subscription Account
   playerName?: string;
   customerEmail?: string;
   targetAccountLink?: string;
@@ -83,35 +105,19 @@ export interface Order {
   diamonds: string | number; // quantity or subscription detail
   amountBdt: number;
   paymentMethod: PaymentMethod;
-  paymentNumber: string;
+  paymentNumber: string; // Sender's bKash or Nagad number
   trxId: string;
   contact?: string;
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
   adminNote?: string;
-  isAutomatedPayment?: boolean;
-  paymentDetails?: {
-    invoiceId?: string;
-    maskedAccount?: string;
-    trxId?: string;
-    paidAt?: string;
-    gatewayStatus?: string;
-  };
 }
 
 export interface SiteConfig {
   siteName: string;
   bkashNumber: string;
   nagadNumber: string;
-  // bKash Automated Checkout API Gateway credentials
-  bkashGatewayEnabled: boolean;
-  bkashMode: 'sandbox' | 'live';
-  bkashMerchantNumber: string;
-  bkashAppKey: string;
-  bkashAppSecret: string;
-  bkashUsername: string;
-  bkashPassword: string;
   whatsappNumber: string;
   supportHours: string;
   supportHoursBn: string;

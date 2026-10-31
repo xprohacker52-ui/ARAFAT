@@ -36,8 +36,11 @@ import {
   Filter,
   CheckCircle2,
   Smartphone,
+  Coins,
+  Wallet,
 } from 'lucide-react';
 import {
+  AddMoneyRequest,
   DiamondPackage,
   DurationOption,
   Language,
@@ -45,18 +48,32 @@ import {
   OrderStatus,
   SiteConfig,
   StreamingServiceItem,
+  UserWallet,
 } from '../types';
 import { translations } from '../data/translations';
 import { BkashLogo, NagadLogo, FacebookLogo, InstagramLogo, NetflixLogo, CrunchyrollLogo } from './BrandLogos';
+import {
+  ADMIN_CUSTOM_PASSWORD_STORAGE_KEY,
+  ADMIN_PRIMARY_PASSWORD_BN,
+  ADMIN_PRIMARY_PASSWORD_EN,
+  isValidAdminPassword,
+} from '../data/initialData';
+
+const ADMIN_SESSION_KEY = 'ag_admin_auth_session_active';
 
 interface AdminPanelProps {
   orders: Order[];
   packages: DiamondPackage[];
   streamingServices: StreamingServiceItem[];
+  addMoneyRequests: AddMoneyRequest[];
+  userWallet: UserWallet;
   config: SiteConfig;
   lang: Language;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus, note?: string) => void;
   onDeleteOrder?: (orderId: string) => void;
+  onApproveAddMoney: (requestId: string) => void;
+  onRejectAddMoney: (requestId: string, note?: string) => void;
+  onDeleteAddMoney?: (requestId: string) => void;
   onUpdatePackage: (pkg: DiamondPackage) => void;
   onAddPackage: (pkg: Omit<DiamondPackage, 'id'>) => void;
   onDeletePackage: (id: string) => void;
@@ -72,10 +89,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   orders,
   packages,
   streamingServices,
+  addMoneyRequests = [],
+  userWallet,
   config,
   lang,
   onUpdateOrderStatus,
   onDeleteOrder,
+  onApproveAddMoney,
+  onRejectAddMoney,
+  onDeleteAddMoney,
   onUpdatePackage,
   onAddPackage,
   onDeletePackage,
@@ -86,16 +108,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onResetToDefaults,
   onClose,
 }) => {
-  // Authentication
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Authentication with persistent session
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
   const [showPin, setShowPin] = useState(false);
 
+  // Custom admin password persistence
+  const [customAdminPassword, setCustomAdminPassword] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(ADMIN_CUSTOM_PASSWORD_STORAGE_KEY) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Password reset/change states
+  const [currentPassInput, setCurrentPassInput] = useState('');
+  const [newPassInput, setNewPassInput] = useState('');
+  const [confirmPassInput, setConfirmPassInput] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState<string | null>(null);
+
   // Active Navigation Tab
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'social' | 'streaming' | 'diamonds' | 'payments' | 'orders' | 'settings'
+    'overview' | 'social' | 'streaming' | 'diamonds' | 'addmoney' | 'orders' | 'payments' | 'settings'
   >('overview');
+
+  // Add Money search & filter state
+  const [addMoneyFilter, setAddMoneyFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [addMoneySearch, setAddMoneySearch] = useState('');
+  const [copiedTrxId, setCopiedTrxId] = useState<string | null>(null);
+  const [rejectingReqId, setRejectingReqId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>('');
 
   // Notification Toast in Admin
   const [saveToast, setSaveToast] = useState<string | null>(null);
@@ -286,20 +340,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   // -------------------------------------------------------------
-  // TAB 4: PAYMENTS & BKASH GATEWAY SETTINGS
+  // TAB 4: MFS PAYMENTS & CONTACT SETTINGS
   // -------------------------------------------------------------
-  const [editBkashGatewayEnabled, setEditBkashGatewayEnabled] = useState(config.bkashGatewayEnabled ?? true);
-  const [editBkashMode, setEditBkashMode] = useState<'sandbox' | 'live'>(config.bkashMode || 'sandbox');
-  const [editBkashMerchantNumber, setEditBkashMerchantNumber] = useState(config.bkashMerchantNumber || config.bkashNumber || '01575630127');
-  const [editBkashAppKey, setEditBkashAppKey] = useState(config.bkashAppKey || 'bkash_sandbox_key_arafat_gaming_99');
-  const [editBkashAppSecret, setEditBkashAppSecret] = useState(config.bkashAppSecret || 'bkash_secret_live_sec_786arafat');
-  const [editBkashUsername, setEditBkashUsername] = useState(config.bkashUsername || 'arafat_merchant_user');
-  const [editBkashPassword, setEditBkashPassword] = useState(config.bkashPassword || '••••••••');
-  const [showBkashSecret, setShowBkashSecret] = useState(false);
-  const [testingBkash, setTestingBkash] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string; timestamp: string } | null>(null);
-
-  // Manual MFS Fallback Numbers
   const [editBkash, setEditBkash] = useState(config.bkashNumber);
   const [editNagad, setEditNagad] = useState(config.nagadNumber);
   const [editWhatsapp, setEditWhatsapp] = useState(config.whatsappNumber);
@@ -308,32 +350,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editSupportHours, setEditSupportHours] = useState(config.supportHours);
   const [editSupportHoursBn, setEditSupportHoursBn] = useState(config.supportHoursBn);
 
-  const handleTestBkashConnection = () => {
-    setTestingBkash(true);
-    setTestResult(null);
-    setTimeout(() => {
-      setTestingBkash(false);
-      setTestResult({
-        success: true,
-        message: editBkashMode === 'sandbox'
-          ? 'bKash Sandbox Tokenized PGW API Connected (HTTP 200 OK — Ready for checkout)'
-          : 'bKash Live Production API Handshake Validated (HTTP 200 OK — Merchant Active)',
-        timestamp: new Date().toLocaleTimeString(),
-      });
-      triggerSaveToast('বিকাশ গেটওয়ে কানেকশন টেস্ট সফল হয়েছে!');
-    }, 1500);
-  };
-
   const handleSavePaymentsAndSettings = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateConfig({
-      bkashGatewayEnabled: editBkashGatewayEnabled,
-      bkashMode: editBkashMode,
-      bkashMerchantNumber: editBkashMerchantNumber.trim(),
-      bkashAppKey: editBkashAppKey.trim(),
-      bkashAppSecret: editBkashAppSecret.trim(),
-      bkashUsername: editBkashUsername.trim(),
-      bkashPassword: editBkashPassword.trim(),
       bkashNumber: editBkash.trim(),
       nagadNumber: editNagad.trim(),
       whatsappNumber: editWhatsapp.trim(),
@@ -342,7 +361,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       supportHours: editSupportHours.trim(),
       supportHoursBn: editSupportHoursBn.trim(),
     });
-    triggerSaveToast('বিকাশ গেটওয়ে ও পেমেন্ট সেটিংস সেভ হয়েছে!');
+    triggerSaveToast('বিকাশ, নগদ ও হেল্পলাইন সেটিংস সফলভাবে সেভ হয়েছে!');
   };
 
 
@@ -383,25 +402,59 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   });
 
   // -------------------------------------------------------------
-  // TAB 6: SECURITY & RESET
+  // TAB 6: SECURITY & PASSWORD MANAGEMENT
   // -------------------------------------------------------------
-  const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [pinChangeMsg, setPinChangeMsg] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const handleChangePin = (e: React.FormEvent) => {
+  const handleChangeAdminPassword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPin.trim()) return;
-    if (newPin !== confirmPin) {
-      setPinChangeMsg('দুইটি পিন মিলছে না!');
+    setPasswordChangeError(null);
+    setPasswordChangeSuccess(null);
+
+    // 1. Verify current password
+    if (!isValidAdminPassword(currentPassInput, customAdminPassword)) {
+      setPasswordChangeError('বর্তমান পাসওয়ার্ড ভুল হয়েছে! অনুগ্রহ করে সঠিক বর্তমান পাসওয়ার্ড দিন।');
       return;
     }
-    onUpdateConfig({ adminPin: newPin.trim() });
-    setNewPin('');
-    setConfirmPin('');
-    setPinChangeMsg('অ্যাডমিন পিন সফলভাবে পরিবর্তন করা হয়েছে!');
-    setTimeout(() => setPinChangeMsg(null), 3000);
+
+    // 2. Validate new password length
+    const trimmedNew = newPassInput.trim();
+    if (!trimmedNew || trimmedNew.length < 4) {
+      setPasswordChangeError('নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে!');
+      return;
+    }
+
+    // 3. Confirm matching
+    if (trimmedNew !== confirmPassInput.trim()) {
+      setPasswordChangeError('নতুন পাসওয়ার্ড এবং নিশ্চিত পাসওয়ার্ড দুটি মিলছে না!');
+      return;
+    }
+
+    // 4. Save to localStorage
+    try {
+      localStorage.setItem(ADMIN_CUSTOM_PASSWORD_STORAGE_KEY, trimmedNew);
+    } catch {}
+
+    setCustomAdminPassword(trimmedNew);
+    onUpdateConfig({ adminPin: trimmedNew });
+
+    setCurrentPassInput('');
+    setNewPassInput('');
+    setConfirmPassInput('');
+    setPasswordChangeSuccess('পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! পরবর্তী লগইনের জন্য এই নতুন পাসওয়ার্ডটি ব্যবহার করুন।');
+    triggerSaveToast('অ্যাডমিন পাসওয়ার্ড সফলভাবে আপডেট হয়েছে!');
+  };
+
+  const handleResetToDefaultPassword = () => {
+    if (window.confirm('আপনি কি ডিফল্ট পাসওয়ার্ডে (আরাফাত সনি এক এক দুই দুই / Arafat Sony 1122) ফিরে যেতে চান?')) {
+      try {
+        localStorage.removeItem(ADMIN_CUSTOM_PASSWORD_STORAGE_KEY);
+      } catch {}
+      setCustomAdminPassword(null);
+      onUpdateConfig({ adminPin: ADMIN_PRIMARY_PASSWORD_BN });
+      setPasswordChangeSuccess('পাসওয়ার্ড রিসেট সম্পন্ন হয়েছে! ডিফল্ট পাসওয়ার্ড (আরাফাত সনি এক এক দুই দুই) সক্রিয় করা হয়েছে।');
+      triggerSaveToast('ডিফল্ট পাসওয়ার্ড সফলভাবে সক্রিয় হয়েছে!');
+    }
   };
 
   const handleExecuteReset = () => {
@@ -419,24 +472,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     .filter((o) => o.status === 'completed')
     .reduce((sum, o) => sum + (o.amountBdt || 0), 0);
 
-  // Authentication check handler
+  const pendingAddMoneyCount = addMoneyRequests.filter((r) => r.status === 'pending').length;
+  const approvedAddMoneyAmount = addMoneyRequests
+    .filter((r) => r.status === 'approved')
+    .reduce((sum, r) => sum + (r.amountBdt || 0), 0);
+
+  // Authentication check handler with strict password validation (custom or initial)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput.trim() === config.adminPin) {
+    if (isValidAdminPassword(pinInput, customAdminPassword)) {
+      try {
+        localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      } catch {}
       setIsAuthenticated(true);
       setPinError(false);
+      triggerSaveToast('অ্যাডমিন প্যানেলে স্বাগতম! লগইন সফল হয়েছে।');
     } else {
       setPinError(true);
     }
   };
 
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+    } catch {}
+    setIsAuthenticated(false);
+    setPinInput('');
+  };
+
   // -------------------------------------------------------------
-  // LOGIN SCREEN (Protected Barrier)
+  // LOGIN SCREEN (Strict Protected Barrier)
   // -------------------------------------------------------------
   if (!isAuthenticated) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-        <div className="w-full max-w-md bg-[#0f0720] border-2 border-purple-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/80 relative overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in font-sans">
+        <div className="w-full max-w-md bg-[#0f0720] border-2 border-purple-800/70 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950 relative overflow-hidden text-slate-100">
           {/* Subtle Ambient Background Light */}
           <div className="absolute -top-24 -left-24 w-52 h-52 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-52 h-52 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none" />
@@ -465,7 +535,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                অ্যাডমিন সিকিউরিটি পাসওয়ার্ড / পিন
+                অ্যাডমিন সিকিউরিটি পাসওয়ার্ড (Fixed Password) *
               </label>
               <div className="relative">
                 <input
@@ -475,9 +545,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     setPinInput(e.target.value);
                     setPinError(false);
                   }}
-                  placeholder="Enter Admin PIN..."
+                  placeholder="পাসওয়ার্ড দিন..."
                   autoFocus
-                  className="w-full pl-4 pr-11 py-3.5 rounded-xl bg-[#160a2c] border border-purple-800/60 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-colors text-sm font-mono tracking-widest"
+                  required
+                  className="w-full pl-4 pr-11 py-3.5 rounded-xl bg-[#160a2c] border border-purple-800/60 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-colors text-sm font-mono tracking-wide"
                 />
                 <button
                   type="button"
@@ -489,10 +560,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               {pinError && (
-                <p className="text-rose-400 text-xs font-semibold mt-2 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  ভুল পিন কোড! অনুগ্রহ করে সঠিক পাসওয়ার্ড দিন।
-                </p>
+                <div className="mt-3 p-3 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>ভুল পাসওয়ার্ড! অ্যাক্সেস সম্পূর্ণভাবে প্রত্যাখ্যাত।</span>
+                </div>
               )}
             </div>
 
@@ -506,16 +577,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </form>
 
           <div className="mt-6 pt-4 border-t border-purple-900/40 text-center">
-            <span className="text-[11px] text-slate-400">
-              ডিফল্ট পিন:{' '}
-              <button
-                type="button"
-                onClick={() => setPinInput(config.adminPin || 'arafat786')}
-                className="text-cyan-400 font-mono underline hover:text-cyan-300 cursor-pointer"
-              >
-                {config.adminPin || 'arafat786'}
-              </button>{' '}
-              (ক্লিক করে অটো ফিল করুন)
+            <span className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <span>ফিক্সড সিকিউরিটি পাসওয়ার্ড দ্বারা সুরক্ষিত</span>
             </span>
           </div>
         </div>
@@ -633,6 +697,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('addmoney')}
+            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer relative ${
+              activeTab === 'addmoney'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-950'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-amber-950/30'
+            }`}
+          >
+            <Coins className="w-4 h-4 text-amber-300" />
+            <span>💰 অ্যাড মানি রিকোয়েস্ট</span>
+            {pendingAddMoneyCount > 0 && (
+              <span className="w-5 h-5 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center justify-center animate-pulse">
+                {pendingAddMoneyCount}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => setActiveTab('orders')}
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer relative ${
               activeTab === 'orders'
@@ -669,8 +750,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
-            <Settings className="w-4 h-4 text-slate-300" />
-            <span>⚙️ সেটিংস ও সিকিউরিটি</span>
+            <Key className="w-4 h-4 text-cyan-300" />
+            <span>🔒 পাসওয়ার্ড ও সিকিউরিটি</span>
           </button>
         </div>
       </div>
@@ -1820,7 +1901,347 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 5: ORDERS MANAGEMENT (SEARCH, STATUS CHANGER, ADMIN NOTES) */}
+        {/* TAB 5: ADD MONEY REQUESTS & BALANCE APPROVAL */}
+        {/* ========================================================================= */}
+        {activeTab === 'addmoney' && (
+          <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Top Stats Banner */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-[#110724] border border-amber-800/40 rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center justify-between text-xs text-amber-300 font-medium mb-1">
+                  <span>অপেক্ষমান রিকোয়েস্ট</span>
+                  <Clock className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black font-mono text-amber-400 flex items-center gap-2">
+                  <span>{pendingAddMoneyCount}</span>
+                  {pendingAddMoneyCount > 0 && (
+                    <span className="text-[10px] bg-amber-500 text-black font-black px-2 py-0.5 rounded-full animate-pulse">
+                      Action Required
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] text-amber-300/80 mt-1">অনুমোদনের জন্য অপেক্ষমান</div>
+              </div>
+
+              <div className="bg-[#110724] border border-emerald-800/40 rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center justify-between text-xs text-emerald-300 font-medium mb-1">
+                  <span>অনুমোদিত মোট ক্রেডিট</span>
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400">
+                  ৳{approvedAddMoneyAmount.toLocaleString()} <span className="text-xs font-sans text-slate-400">BDT</span>
+                </div>
+                <div className="text-[10px] text-emerald-300/80 mt-1">সাইট ব্যালেন্সে যুক্ত হয়েছে</div>
+              </div>
+
+              <div className="bg-[#110724] border border-purple-800/40 rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center justify-between text-xs text-purple-300 font-medium mb-1">
+                  <span>মোট ডিপোজিট রিকোয়েস্ট</span>
+                  <Coins className="w-4 h-4 text-purple-400" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black font-mono text-white">
+                  {addMoneyRequests.length}
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">সর্বমোট জমা রিকোয়েস্ট</div>
+              </div>
+
+              <div className="bg-[#110724] border border-cyan-800/40 rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center justify-between text-xs text-cyan-300 font-medium mb-1">
+                  <span>অ্যাক্টিভ ইউজার ব্যালেন্স</span>
+                  <Wallet className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black font-mono text-cyan-400">
+                  ৳{userWallet.balance.toLocaleString()} <span className="text-xs font-sans text-slate-400">Coins</span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">{userWallet.phone || '01712345678'}</div>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="bg-[#0f0720] border border-purple-900/40 rounded-3xl p-5 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  <span className="text-xs font-bold text-slate-400">ফিল্টার:</span>
+                  {(['all', 'pending', 'approved', 'rejected'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setAddMoneyFilter(st)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
+                        addMoneyFilter === st
+                          ? 'bg-amber-600 text-white shadow-md'
+                          : 'bg-purple-950/40 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {st === 'all'
+                        ? `সকল (${addMoneyRequests.length})`
+                        : st === 'pending'
+                        ? `পেন্ডিং (${pendingAddMoneyCount})`
+                        : st === 'approved'
+                        ? `অনুমোদিত (${addMoneyRequests.filter((r) => r.status === 'approved').length})`
+                        : `বাতিল (${addMoneyRequests.filter((r) => r.status === 'rejected').length})`}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative min-w-[240px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={addMoneySearch}
+                    onChange={(e) => setAddMoneySearch(e.target.value)}
+                    placeholder="নম্বর বা TrxID দিয়ে খুঁজুন..."
+                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-[#170c35] border border-purple-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Add Money Requests Table / Cards */}
+            <div className="space-y-4">
+              {addMoneyRequests
+                .filter((req) => {
+                  if (addMoneyFilter !== 'all' && req.status !== addMoneyFilter) return false;
+                  if (addMoneySearch.trim()) {
+                    const q = addMoneySearch.trim().toLowerCase();
+                    return (
+                      req.id.toLowerCase().includes(q) ||
+                      req.userPhone.toLowerCase().includes(q) ||
+                      req.senderNumber.toLowerCase().includes(q) ||
+                      req.trxId.toLowerCase().includes(q) ||
+                      (req.userName && req.userName.toLowerCase().includes(q))
+                    );
+                  }
+                  return true;
+                })
+                .map((req) => {
+                  const isPending = req.status === 'pending';
+                  const isApproved = req.status === 'approved';
+                  const isRejected = req.status === 'rejected';
+
+                  return (
+                    <div
+                      key={req.id}
+                      className={`p-5 rounded-3xl border transition-all ${
+                        isPending
+                          ? 'bg-[#140b28] border-amber-600/60 shadow-lg shadow-amber-950/30'
+                          : isApproved
+                          ? 'bg-[#0f0b20] border-emerald-900/50'
+                          : 'bg-[#0f071a] border-rose-950/60 opacity-80'
+                      }`}
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        {/* Left: Request ID & User Info */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-black text-amber-400 text-sm">{req.id}</span>
+                            <span className="text-[11px] text-slate-400">
+                              {new Date(req.createdAt).toLocaleDateString()} · {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                isApproved
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
+                                  : isRejected
+                                  ? 'bg-rose-950 text-rose-300 border border-rose-700/60'
+                                  : 'bg-amber-950 text-amber-300 border border-amber-700/60 animate-pulse'
+                              }`}
+                            >
+                              {isApproved && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                              {isRejected && <XCircle className="w-3 h-3 text-rose-400" />}
+                              {isPending && <Clock className="w-3 h-3 text-amber-400" />}
+                              <span>
+                                {isApproved ? 'অনুমোদিত (Credited)' : isRejected ? 'বাতিলকৃত (Rejected)' : 'অপেক্ষমান (Pending)'}
+                              </span>
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-400">অ্যাকাউন্ট মোবাইল:</span>
+                            <span className="font-mono font-bold text-white bg-black/40 px-2 py-0.5 rounded border border-purple-900/40">
+                              {req.userPhone}
+                            </span>
+                            {req.userName && (
+                              <span className="text-purple-300 font-medium">({req.userName})</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Middle: Payment Method, Sender Number & TrxID */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 rounded-2xl bg-black/40 border border-purple-900/40 text-xs font-mono">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">পেমেন্ট মাধ্যম</span>
+                            <div className="flex items-center gap-1.5 font-bold text-white mt-0.5">
+                              {req.paymentMethod === 'bkash' ? (
+                                <>
+                                  <BkashLogo className="w-4 h-4 shrink-0" />
+                                  <span className="text-[#E2136E]">bKash Personal</span>
+                                </>
+                              ) : (
+                                <>
+                                  <NagadLogo className="w-4 h-4 shrink-0" />
+                                  <span className="text-[#f7941d]">Nagad Personal</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">প্রেরক নম্বর (Sender)</span>
+                            <span className="font-bold text-slate-200 mt-0.5 block">{req.senderNumber}</span>
+                          </div>
+
+                          <div className="col-span-2 sm:col-span-1">
+                            <span className="text-slate-400 block text-[10px]">Transaction ID (TrxID)</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="font-bold text-amber-300 tracking-wider">{req.trxId}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(req.trxId);
+                                  setCopiedTrxId(req.id);
+                                  setTimeout(() => setCopiedTrxId(null), 2000);
+                                }}
+                                className="p-1 rounded hover:bg-purple-900/50 text-slate-400 hover:text-white cursor-pointer"
+                                title="Copy TrxID"
+                              >
+                                {copiedTrxId === req.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: Amount & Actions */}
+                        <div className="flex flex-col sm:flex-row lg:flex-col items-start lg:items-end justify-between gap-3 shrink-0">
+                          <div className="text-left lg:text-right">
+                            <span className="text-[10px] text-slate-400 block uppercase tracking-wider font-bold">
+                              ডিপোজিট ব্যালেন্স
+                            </span>
+                            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400">
+                              ৳{req.amountBdt.toLocaleString()} <span className="text-xs font-sans text-amber-300 font-bold">AG Coins</span>
+                            </div>
+                          </div>
+
+                          {/* Approval / Reject Controls */}
+                          <div className="flex items-center gap-2">
+                            {isPending && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onApproveAddMoney(req.id);
+                                    triggerSaveToast(`৳${req.amountBdt} BDT সফলভাবে ইউজারের অ্যাকাউন্টে ক্রেডিট করা হয়েছে!`);
+                                  }}
+                                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md shadow-emerald-950 flex items-center gap-1.5 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>অনুমোদন করুন (Approve)</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRejectingReqId(req.id);
+                                    setRejectReason('');
+                                  }}
+                                  className="px-3 py-2 rounded-xl bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-xs font-bold cursor-pointer transition-colors"
+                                >
+                                  <span>বাতিল</span>
+                                </button>
+                              </>
+                            )}
+
+                            {isApproved && (
+                              <div className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-800/40">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>ব্যালেন্সে ক্রেডিট সম্পন্ন</span>
+                              </div>
+                            )}
+
+                            {isRejected && (
+                              <div className="text-[11px] font-bold text-rose-400 flex items-center gap-1 bg-rose-950/60 px-3 py-1.5 rounded-xl border border-rose-800/40">
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>অনুরোধ বাতিল করা হয়েছে</span>
+                              </div>
+                            )}
+
+                            {onDeleteAddMoney && (
+                              <button
+                                type="button"
+                                onClick={() => onDeleteAddMoney(req.id)}
+                                className="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+                                title="Delete Record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Reject reason input prompt if active */}
+                      {rejectingReqId === req.id && (
+                        <div className="mt-3 p-3.5 rounded-2xl bg-[#1b0816] border border-rose-800/70 space-y-2">
+                          <label className="block text-xs font-bold text-rose-300">
+                            বাতিল করার কারণ লিখুন (ঐচ্ছিক):
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={rejectReason}
+                              onChange={(e) => setRejectReason(e.target.value)}
+                              placeholder="e.g. TrxID মেলেনি বা টাকা জমা হয়নি"
+                              className="flex-1 px-3 py-1.5 rounded-xl bg-black/60 border border-rose-800 text-xs text-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onRejectAddMoney(req.id, rejectReason || undefined);
+                                setRejectingReqId(null);
+                                triggerSaveToast('রিকোয়েস্ট বাতিল করা হয়েছে।');
+                              }}
+                              className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer"
+                            >
+                              নিশ্চিত বাতিল
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRejectingReqId(null)}
+                              className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs cursor-pointer"
+                            >
+                              পিছনে যান
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Admin Note display */}
+                      {req.adminNote && !isPending && (
+                        <div className="mt-2 text-[11px] text-slate-400 bg-black/30 p-2 rounded-xl border border-purple-900/30">
+                          <span className="font-semibold text-purple-300">অ্যাডমিন নোট: </span>
+                          {req.adminNote}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+              {addMoneyRequests.length === 0 && (
+                <div className="py-12 text-center text-slate-400 text-xs bg-[#0f0720] rounded-3xl border border-purple-900/40 space-y-2">
+                  <Coins className="w-10 h-10 mx-auto text-amber-400 opacity-60" />
+                  <p>এখনো কোনো অ্যাড মানি রিকোয়েস্ট জমা হয়নি।</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: ORDERS MANAGEMENT (SEARCH, STATUS CHANGER, ADMIN NOTES) */}
         {/* ========================================================================= */}
         {activeTab === 'orders' && (
           <div className="space-y-6 max-w-7xl mx-auto">
@@ -2044,229 +2465,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </h2>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-300">
-                  bKash Checkout API (Tokenized Payment Gateway) ক্রেডেনশিয়াল এবং নগদ পার্সোনাল নম্বর পরিচালনা করুন।
+                  বিকাশ ও নগদ পার্সোনাল সেন্ড মানি নম্বর এবং হেল্পলাইন কন্টাক্ট নম্বর পরিচালনা করুন।
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
-                  editBkashGatewayEnabled
-                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600'
-                    : 'bg-rose-950/80 text-rose-300 border-rose-600'
-                }`}>
-                  {editBkashGatewayEnabled ? 'Gateway: Active' : 'Gateway: Disabled'}
-                </span>
-                <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-pink-950/80 text-pink-300 border border-pink-700 uppercase">
-                  {editBkashMode}
+                <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-600">
+                  MFS Send Money: Active
                 </span>
               </div>
             </div>
 
             <form onSubmit={handleSavePaymentsAndSettings} className="space-y-6">
-              {/* SECTION 1: BKASH AUTOMATED CHECKOUT API SETTINGS */}
-              <div className="bg-[#0f0720] border-2 border-pink-900/60 rounded-3xl p-6 space-y-5 shadow-xl relative overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-pink-900/40">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-[#E2136E] text-white">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <span>bKash Automated Payment Gateway (Checkout API)</span>
-                      </h3>
-                      <p className="text-xs text-pink-300/80">
-                        গ্রাহক সরাসরি বিকাশ পপআপে পিন দিয়ে ১-ক্লিকে পেমেন্ট সম্পন্ন করতে পারবে
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Mode Toggles */}
-                  <div className="flex items-center gap-2 bg-[#170c35] p-1.5 rounded-xl border border-pink-800/40">
-                    <button
-                      type="button"
-                      onClick={() => setEditBkashMode('sandbox')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        editBkashMode === 'sandbox'
-                          ? 'bg-pink-600 text-white shadow'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      🧪 Sandbox (Test)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditBkashMode('live')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        editBkashMode === 'live'
-                          ? 'bg-emerald-600 text-white shadow'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      🚀 Live Production
-                    </button>
-                  </div>
-                </div>
-
-                {/* Gateway Enable / Disable Switch */}
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#170a2a] border border-pink-900/40">
-                  <div>
-                    <span className="text-xs font-bold text-white block">
-                      অটোমেটেড বিকাশ গেটওয়ে স্ট্যাটাস:
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      সক্রিয় থাকলে চেকআউটে "Pay with bKash" ১-ক্লিক বাটন প্রদর্শিত হবে
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={editBkashGatewayEnabled}
-                      onChange={(e) => setEditBkashGatewayEnabled(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E2136E]"></div>
-                  </label>
-                </div>
-
-                {/* Credential Inputs Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Merchant Wallet Number */}
-                  <div>
-                    <label className="block text-xs font-bold text-pink-300 uppercase tracking-wider mb-1.5">
-                      bKash Merchant Wallet Number *
-                    </label>
-                    <input
-                      type="text"
-                      value={editBkashMerchantNumber}
-                      onChange={(e) => setEditBkashMerchantNumber(e.target.value)}
-                      required
-                      placeholder="015XXXXXXXX"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-pink-800/60 text-white font-mono font-bold text-sm focus:outline-none focus:border-pink-400"
-                    />
-                  </div>
-
-                  {/* App Key */}
-                  <div>
-                    <label className="block text-xs font-bold text-pink-300 uppercase tracking-wider mb-1.5">
-                      bKash App Key *
-                    </label>
-                    <input
-                      type="text"
-                      value={editBkashAppKey}
-                      onChange={(e) => setEditBkashAppKey(e.target.value)}
-                      required
-                      placeholder="bkash_app_key_..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-pink-800/60 text-white font-mono text-xs focus:outline-none focus:border-pink-400"
-                    />
-                  </div>
-
-                  {/* App Secret */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-bold text-pink-300 uppercase tracking-wider">
-                        bKash App Secret *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowBkashSecret(!showBkashSecret)}
-                        className="text-slate-400 hover:text-white cursor-pointer"
-                      >
-                        {showBkashSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    <input
-                      type={showBkashSecret ? 'text' : 'password'}
-                      value={editBkashAppSecret}
-                      onChange={(e) => setEditBkashAppSecret(e.target.value)}
-                      required
-                      placeholder="bkash_secret_..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-pink-800/60 text-white font-mono text-xs focus:outline-none focus:border-pink-400"
-                    />
-                  </div>
-
-                  {/* API Username */}
-                  <div>
-                    <label className="block text-xs font-bold text-pink-300 uppercase tracking-wider mb-1.5">
-                      API Username *
-                    </label>
-                    <input
-                      type="text"
-                      value={editBkashUsername}
-                      onChange={(e) => setEditBkashUsername(e.target.value)}
-                      required
-                      placeholder="merchant_username"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-pink-800/60 text-white font-mono text-xs focus:outline-none focus:border-pink-400"
-                    />
-                  </div>
-
-                  {/* API Password */}
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-pink-300 uppercase tracking-wider mb-1.5">
-                      API Password *
-                    </label>
-                    <input
-                      type="password"
-                      value={editBkashPassword}
-                      onChange={(e) => setEditBkashPassword(e.target.value)}
-                      required
-                      placeholder="••••••••••••"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-pink-800/60 text-white font-mono text-xs focus:outline-none focus:border-pink-400"
-                    />
-                  </div>
-                </div>
-
-                {/* Test Connection Button & Result */}
-                <div className="p-3.5 rounded-2xl bg-[#140826] border border-pink-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="text-xs text-slate-300">
-                    <span className="font-bold text-white block">API কানেক্টিভিটি টেস্ট:</span>
-                    <span>সেটিংস ঠিক থাকলে টেস্ট বাটন দিয়ে গেটওয়ে হ্যান্ডশেক যাচাই করুন</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleTestBkashConnection}
-                    disabled={testingBkash}
-                    className="px-4 py-2 rounded-xl bg-pink-900/60 hover:bg-pink-800 text-pink-200 border border-pink-700 font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shrink-0 disabled:opacity-50"
-                  >
-                    {testingBkash ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>পরীক্ষা করা হচ্ছে...</span>
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Test Gateway Connection</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {testResult && (
-                  <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 text-xs flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>{testResult.message}</span>
-                    </div>
-                    <span className="text-[10px] text-emerald-400 font-mono">{testResult.timestamp}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* SECTION 2: MANUAL PERSONAL NUMBERS (BKASH & NAGAD) */}
+              {/* SECTION: MANUAL PERSONAL MFS NUMBERS & HELPLINE */}
               <div className="bg-[#0f0720] border border-purple-900/50 rounded-3xl p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-purple-900/40">
                   <Smartphone className="w-5 h-5 text-amber-400" />
-                  <h3 className="text-base font-bold text-white">
-                    পার্সোনাল মোবাইল সেন্ড মানি নম্বর (Manual Send Money)
-                  </h3>
+                  <div>
+                    <h3 className="text-base font-bold text-white">
+                      মোবাইল ফাইন্যান্সিয়াল সার্ভিস (bKash ও Nagad পার্সোনাল নম্বর)
+                    </h3>
+                    <p className="text-xs text-purple-300/80">
+                      গ্রাহকরা চেকআউটে এই নম্বরগুলো দেখে Send Money করবে এবং TrxID জমা দেবে
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* bKash Personal Number */}
                   <div>
                     <label className="block text-xs font-bold text-pink-400 uppercase tracking-wider mb-1.5">
-                      বিকাশ পার্সোনাল নম্বর (ম্যানুয়াল সেন্ড মানি):
+                      বিকাশ পার্সোনাল নম্বর (Send Money):
                     </label>
                     <input
                       type="text"
@@ -2277,7 +2506,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-pink-800/50 text-white font-mono font-bold focus:outline-none focus:border-pink-400 text-sm"
                     />
                     <span className="text-[10px] text-slate-400 mt-1 block">
-                      যেসব গ্রাহক ইউএসএসডি (*247#) দিয়ে ম্যানুয়ালি টাকা পাঠাবে
+                      গ্রাহক বিকাশ অ্যাপ বা *247# ডায়াল করে Send Money করবে
                     </span>
                   </div>
 
@@ -2295,7 +2524,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-amber-800/50 text-white font-mono font-bold focus:outline-none focus:border-amber-400 text-sm"
                     />
                     <span className="text-[10px] text-slate-400 mt-1 block">
-                      নগদ অ্যাপ বা *167# ডায়াল করে টাকা পাঠানোর নম্বর
+                      গ্রাহক নগদ অ্যাপ বা *167# ডায়াল করে Send Money করবে
                     </span>
                   </div>
                 </div>
@@ -2362,7 +2591,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-95 text-white font-bold text-sm shadow-xl flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"
                 >
                   <Save className="w-4 h-4" />
-                  <span>বিকাশ গেটওয়ে ও পেমেন্ট সেটিংস সেভ করুন</span>
+                  <span>পেমেন্ট ও হেল্পলাইন সেটিংস সেভ করুন</span>
                 </button>
               </div>
             </form>
@@ -2370,56 +2599,170 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 7: SETTINGS, SECURITY PIN & FACTORY RESET */}
+        {/* TAB 7: SETTINGS, SECURITY & PASSWORD RESET */}
         {/* ========================================================================= */}
         {activeTab === 'settings' && (
           <div className="space-y-6 max-w-3xl mx-auto">
-            {/* Change PIN Form */}
-            <div className="bg-[#0f0720] border border-purple-900/50 rounded-3xl p-6 sm:p-8 space-y-5">
-              <div className="flex items-center gap-3 pb-4 border-b border-purple-900/40">
-                <Key className="w-6 h-6 text-cyan-400" />
-                <div>
-                  <h3 className="text-lg font-bold text-white">অ্যাডমিন পাসওয়ার্ড / পিন পরিবর্তন</h3>
-                  <p className="text-xs text-slate-400">ড্যাশবোর্ড সুরক্ষার জন্য নতুন পিন সেট করুন</p>
+            {/* Admin Password Change Form */}
+            <div className="bg-[#0f0720] border border-purple-900/60 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl">
+              <div className="flex items-center justify-between pb-4 border-b border-purple-900/40">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-cyan-500 p-0.5 shadow-md">
+                    <div className="w-full h-full bg-[#0d071f] rounded-[10px] flex items-center justify-center">
+                      <Key className="w-5 h-5 text-cyan-400" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">অ্যাডমিন পাসওয়ার্ড পরিবর্তন (Change Admin Password)</h3>
+                    <p className="text-xs text-purple-300/80">
+                      আপনার অ্যাডমিন অ্যাকাউন্টের জন্য নতুন সিকিউরিটি পাসওয়ার্ড সেট করুন
+                    </p>
+                  </div>
                 </div>
+
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/50">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>সিকিউর</span>
+                </span>
               </div>
 
-              <form onSubmit={handleChangePin} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">নতুন পিন কোড:</label>
-                    <input
-                      type="password"
-                      value={newPin}
-                      onChange={(e) => setNewPin(e.target.value)}
-                      required
-                      placeholder="Enter new PIN..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-purple-800 text-white font-mono text-sm"
-                    />
+              {/* Current Password Status Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-[#120826] border border-purple-800/40 space-y-2 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-bold text-white text-sm">
+                      {customAdminPassword ? 'কাস্টম পাসওয়ার্ড সক্রিয়' : 'ডিফল্ট মাস্টার পাসওয়ার্ড সক্রিয়'}
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">পুনরায় নতুন পিন দিন:</label>
+                  {customAdminPassword && (
+                    <button
+                      type="button"
+                      onClick={handleResetToDefaultPassword}
+                      className="px-2.5 py-1 rounded-lg bg-rose-950/80 text-rose-300 hover:bg-rose-900 border border-rose-800 text-[11px] font-bold cursor-pointer transition-colors"
+                    >
+                      ডিফল্ট পাসওয়ার্ডে রিসেট করুন
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-slate-300 leading-relaxed">
+                  {customAdminPassword
+                    ? 'আপনি একটি কাস্টম পাসওয়ার্ড সেট করেছেন। এটি আপনার ব্রাউজারে সুরক্ষিতভাবে সংরক্ষিত রয়েছে এবং স্থায়ী থাকবে।'
+                    : 'বর্তমানে সিস্টেমের ডিফল্ট পাসওয়ার্ড সক্রিয় রয়েছে (আরাফাত সনি এক এক দুই দুই / Arafat Sony 1122)। নিচের ফর্মটি ব্যবহার করে যেকোনো সময় আপনার নিজস্ব নতুন পাসওয়ার্ড সেট করতে পারবেন।'}
+                </p>
+              </div>
+
+              {/* Password Change Form */}
+              <form onSubmit={handleChangeAdminPassword} className="space-y-4">
+                {/* Current Password Field */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    ১. বর্তমান পাসওয়ার্ড (Current Password) *
+                  </label>
+                  <div className="relative">
                     <input
-                      type="password"
-                      value={confirmPin}
-                      onChange={(e) => setConfirmPin(e.target.value)}
+                      type={showCurrentPass ? 'text' : 'password'}
                       required
-                      placeholder="Confirm new PIN..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#170c35] border border-purple-800 text-white font-mono text-sm"
+                      value={currentPassInput}
+                      onChange={(e) => {
+                        setCurrentPassInput(e.target.value);
+                        setPasswordChangeError(null);
+                      }}
+                      placeholder="বর্তমান পাসওয়ার্ড দিন..."
+                      className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#160a2c] border border-purple-800/60 text-white placeholder-slate-500 focus:outline-none focus:border-purple-400 font-mono text-sm"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 cursor-pointer"
+                    >
+                      {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
-                {pinChangeMsg && (
-                  <p className="text-xs font-bold text-cyan-400">{pinChangeMsg}</p>
+                {/* New Password & Confirm New Password Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                      ২. নতুন পাসওয়ার্ড (New Password) *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPass ? 'text' : 'password'}
+                        required
+                        value={newPassInput}
+                        onChange={(e) => {
+                          setNewPassInput(e.target.value);
+                          setPasswordChangeError(null);
+                        }}
+                        placeholder="কমপক্ষে ৪ অক্ষরের পাসওয়ার্ড..."
+                        className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#160a2c] border border-purple-800/60 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 cursor-pointer"
+                      >
+                        {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                      ৩. নতুন পাসওয়ার্ড নিশ্চিত করুন (Confirm) *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPass ? 'text' : 'password'}
+                        required
+                        value={confirmPassInput}
+                        onChange={(e) => {
+                          setConfirmPassInput(e.target.value);
+                          setPasswordChangeError(null);
+                        }}
+                        placeholder="নতুন পাসওয়ার্ডটি আবার লিখুন..."
+                        className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#160a2c] border border-purple-800/60 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPass(!showConfirmPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 cursor-pointer"
+                      >
+                        {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Error Banner */}
+                {passwordChangeError && (
+                  <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{passwordChangeError}</span>
+                  </div>
                 )}
 
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg cursor-pointer"
-                >
-                  পিন পরিবর্তন করুন
-                </button>
+                {/* Success Banner */}
+                {passwordChangeSuccess && (
+                  <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>{passwordChangeSuccess}</span>
+                  </div>
+                )}
+
+                {/* Submit Button */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-purple-950 flex items-center gap-2 cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                  >
+                    <Key className="w-4 h-4" />
+                    <span>পাসওয়ার্ড পরিবর্তন ও সেভ করুন</span>
+                  </button>
+                </div>
               </form>
             </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  AddMoneyRequest,
   DiamondPackage,
   Language,
   Order,
@@ -8,9 +9,12 @@ import {
   SiteConfig,
   StreamingServiceItem,
   StreamingSubscription,
+  UserWallet,
 } from './types';
 import {
   DEFAULT_SITE_CONFIG,
+  DEFAULT_USER_WALLET,
+  INITIAL_ADD_MONEY_REQUESTS,
   INITIAL_ORDERS,
   INITIAL_PACKAGES,
   INITIAL_STREAMING_CATALOG,
@@ -22,6 +26,7 @@ import { DiamondPackages } from './components/DiamondPackages';
 import { SocialFollowersSection } from './components/SocialFollowersSection';
 import { StreamingSubscriptions } from './components/StreamingSubscriptions';
 import { ActiveOrderSelection, OrderModal } from './components/OrderModal';
+import { AddMoneyModal } from './components/AddMoneyModal';
 import { OrderTracker } from './components/OrderTracker';
 import { HowToOrder } from './components/HowToOrder';
 import { PaymentGuide } from './components/PaymentGuide';
@@ -38,6 +43,8 @@ const STORAGE_KEYS = {
   CONFIG: 'arafat_gaming_config_v1',
   LANG: 'arafat_gaming_lang_v1',
   STREAMING: 'arafat_gaming_streaming_services_v1',
+  ADD_MONEY: 'arafat_gaming_add_money_requests_v1',
+  USER_WALLET: 'arafat_gaming_user_wallet_v1',
 };
 
 function MainApp() {
@@ -100,9 +107,30 @@ function MainApp() {
     }
   });
 
+  // 6. User Wallet & Balance
+  const [userWallet, setUserWallet] = useState<UserWallet>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.USER_WALLET);
+      return saved ? JSON.parse(saved) : DEFAULT_USER_WALLET;
+    } catch {
+      return DEFAULT_USER_WALLET;
+    }
+  });
+
+  // 7. Add Money Deposit Requests
+  const [addMoneyRequests, setAddMoneyRequests] = useState<AddMoneyRequest[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ADD_MONEY);
+      return saved ? JSON.parse(saved) : INITIAL_ADD_MONEY_REQUESTS;
+    } catch {
+      return INITIAL_ADD_MONEY_REQUESTS;
+    }
+  });
+
   // Navigation & Modals
   const [activeTab, setActiveTab] = useState<string>('home');
   const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [addMoneyModalOpen, setAddMoneyModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<DiamondPackage | null>(null);
   const [activeSelection, setActiveSelection] = useState<ActiveOrderSelection | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('bkash');
@@ -143,6 +171,18 @@ function MainApp() {
       localStorage.setItem(STORAGE_KEYS.STREAMING, JSON.stringify(streamingServices));
     } catch {}
   }, [streamingServices]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.USER_WALLET, JSON.stringify(userWallet));
+    } catch {}
+  }, [userWallet]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ADD_MONEY, JSON.stringify(addMoneyRequests));
+    } catch {}
+  }, [addMoneyRequests]);
 
   // Dynamic SEO Synchronization per section & language
   useEffect(() => {
@@ -285,25 +325,26 @@ function MainApp() {
     const newOrder: Order = {
       ...orderData,
       id: newOrderId,
-      status: orderData.isAutomatedPayment ? 'processing' : 'pending',
+      status: 'pending',
       createdAt: now,
       updatedAt: now,
-      adminNote: orderData.isAutomatedPayment
-        ? `bKash Tokenized PGW পেমেন্ট সফল (TrxID: ${orderData.trxId})। সিস্টেম কর্তৃক ভেরিফাইড এবং প্রসেসিং শুরু হয়েছে।`
-        : orderData.serviceType === 'facebook_followers'
-        ? 'ফেসবুক ফলোয়ার্স অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
-        : orderData.serviceType === 'streaming_subscription'
-        ? 'সাবস্ক্রিপশন অর্ডার পেন্ডিং আছে। TrxID যাচাই করে অ্যাকাউন্ট ক্রেডেনশিয়াল পাঠানো হবে।'
-        : 'অর্ডার পেন্ডিং আছে। TrxID যাচাই করার পর ডায়মন্ড পাঠানো হবে।',
+      adminNote:
+        orderData.serviceType === 'facebook_followers'
+          ? 'ফেসবুক ফলোয়ার্স অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
+          : orderData.serviceType === 'instagram_followers'
+          ? 'ইনস্টাগ্রাম ফলোয়ার্স অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
+          : orderData.serviceType === 'streaming_subscription'
+          ? 'সাবস্ক্রিপশন অর্ডার পেন্ডিং আছে। TrxID যাচাই করে অ্যাকাউন্ট ক্রেডেনশিয়াল পাঠানো হবে।'
+          : 'অর্ডার পেন্ডিং আছে। TrxID যাচাই করার পর ডায়মন্ড পাঠানো হবে।',
     };
 
     setOrders((prev) => [newOrder, ...prev]);
 
     // Instant toast notification for customer
     showToast({
-      title: orderData.isAutomatedPayment ? 'bKash পেমেন্ট সফল ও অর্ডার গৃহীত!' : 'অর্ডার সফলভাবে জমা হয়েছে!',
-      message: `Order ID: ${newOrderId} · আপনার ${orderData.packageNameBn || orderData.packageName} ${orderData.isAutomatedPayment ? 'স্বয়ংক্রিয়ভাবে ভেরিফাইড হয়েছে এবং ডেলিভারি প্রক্রিয়ায় রয়েছে।' : 'পেমেন্ট ভেরিফাই করে দ্রুত ডেলিভারি দেওয়া হবে।'}`,
-      status: orderData.isAutomatedPayment ? 'processing' : 'pending',
+      title: 'অর্ডার সফলভাবে জমা হয়েছে!',
+      message: `Order ID: ${newOrderId} · আপনার ${orderData.packageNameBn || orderData.packageName} পেমেন্ট ভেরিফাই করে দ্রুত ডেলিভারি দেওয়া হবে।`,
+      status: 'pending',
       type: 'success',
       duration: 8000,
       action: {
@@ -393,6 +434,96 @@ function MainApp() {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
   };
 
+  // Add Money / Wallet handlers
+  const handleSubmitAddMoneyRequest = async (
+    reqData: Omit<AddMoneyRequest, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'adminNote'>
+  ): Promise<string> => {
+    const randomId = `DEP-${Math.floor(100000 + Math.random() * 900000)}`;
+    const now = new Date().toISOString();
+    const newReq: AddMoneyRequest = {
+      ...reqData,
+      id: randomId,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+    };
+    setAddMoneyRequests((prev) => [newReq, ...prev]);
+
+    showToast({
+      title: 'ডিপোজিট রিকোয়েস্ট সফল!',
+      message: `Deposit ID: ${randomId} · অ্যাডমিন TrxID যাচাই করার পর ৳${reqData.amountBdt} ব্যালেন্স আপনার অ্যাকাউন্টে যোগ হবে।`,
+      status: 'pending',
+      type: 'success',
+      duration: 6000,
+    });
+
+    return randomId;
+  };
+
+  // Admin approves deposit request: automatically adds funds to user wallet
+  const handleApproveAddMoney = (requestId: string) => {
+    const target = addMoneyRequests.find((r) => r.id === requestId);
+    if (!target) return;
+    if (target.status === 'approved') return;
+
+    // Update request status
+    setAddMoneyRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? { ...r, status: 'approved', updatedAt: new Date().toISOString() }
+          : r
+      )
+    );
+
+    // Auto credit to user wallet balance
+    setUserWallet((prev) => ({
+      ...prev,
+      balance: prev.balance + target.amountBdt,
+    }));
+
+    showToast({
+      title: 'ব্যালেন্স যুক্ত হয়েছে! (Approved)',
+      message: `৳${target.amountBdt.toLocaleString()} BDT সফলভাবে অ্যাকাউন্টে ক্রেডিট করা হয়েছে।`,
+      status: 'completed',
+      type: 'success',
+      duration: 5000,
+    });
+  };
+
+  // Admin rejects deposit request
+  const handleRejectAddMoney = (requestId: string, note?: string) => {
+    setAddMoneyRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? { ...r, status: 'rejected', adminNote: note, updatedAt: new Date().toISOString() }
+          : r
+      )
+    );
+
+    showToast({
+      title: 'রিকোয়েস্ট বাতিল (Rejected)',
+      message: 'ডিপোজিট রিকোয়েস্টটি বাতিল করা হয়েছে।',
+      status: 'rejected',
+      type: 'info',
+      duration: 4000,
+    });
+  };
+
+  // Admin deletes deposit request
+  const handleDeleteAddMoney = (requestId: string) => {
+    setAddMoneyRequests((prev) => prev.filter((r) => r.id !== requestId));
+  };
+
+  // Deduct balance when user pays via wallet
+  const handleDeductWalletBalance = (amount: number): boolean => {
+    if (userWallet.balance < amount) return false;
+    setUserWallet((prev) => ({
+      ...prev,
+      balance: Math.max(0, prev.balance - amount),
+    }));
+    return true;
+  };
+
   const handleResetToDefaults = () => {
     setPackages(INITIAL_PACKAGES);
     setConfig(DEFAULT_SITE_CONFIG);
@@ -405,11 +536,12 @@ function MainApp() {
   };
 
   // Open modal preselected with package (Free Fire)
-  const handleSelectPackageForOrder = (pkg: DiamondPackage) => {
+  const handleSelectPackageForOrder = (pkg: DiamondPackage, playerUid?: string) => {
     setSelectedPackage(pkg);
     setActiveSelection({
       serviceType: 'free_fire',
       diamondPackage: pkg,
+      playerUid,
     });
     setOrderModalOpen(true);
   };
@@ -479,6 +611,8 @@ function MainApp() {
           const el = document.getElementById('track-order');
           if (el) el.scrollIntoView({ behavior: 'smooth' });
         }}
+        wallet={userWallet}
+        onOpenAddMoney={() => setAddMoneyModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -607,8 +741,22 @@ function MainApp() {
         streamingServices={streamingServices}
         initialPaymentMethod={selectedPaymentMethod}
         config={config}
+        wallet={userWallet}
+        onOpenAddMoney={() => setAddMoneyModalOpen(true)}
+        onDeductWallet={handleDeductWalletBalance}
         onSubmitOrder={handleSubmitOrder}
         onNavigateToTracking={handleNavigateToTracking}
+      />
+
+      {/* Personal Add Money Modal */}
+      <AddMoneyModal
+        isOpen={addMoneyModalOpen}
+        onClose={() => setAddMoneyModalOpen(false)}
+        lang={lang}
+        config={config}
+        wallet={userWallet}
+        requests={addMoneyRequests}
+        onSubmitAddMoney={handleSubmitAddMoneyRequest}
       />
 
       {/* Comprehensive Admin Panel Modal */}
@@ -619,6 +767,11 @@ function MainApp() {
           streamingServices={streamingServices}
           config={config}
           lang={lang}
+          addMoneyRequests={addMoneyRequests}
+          userWallet={userWallet}
+          onApproveAddMoney={handleApproveAddMoney}
+          onRejectAddMoney={handleRejectAddMoney}
+          onDeleteAddMoney={handleDeleteAddMoney}
           onUpdateOrderStatus={handleUpdateOrderStatus}
           onDeleteOrder={handleDeleteOrder}
           onUpdatePackage={handleUpdatePackage}

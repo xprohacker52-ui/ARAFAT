@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Sparkles, Menu, X, Globe, ShoppingBag, Search, Users, Tv } from 'lucide-react';
-import { Language } from '../types';
+import { Language, UserWallet } from '../types';
 import { translations } from '../data/translations';
 
 interface NavbarProps {
@@ -10,6 +10,8 @@ interface NavbarProps {
   onSelectTab: (tab: string) => void;
   onOpenOrderModal: () => void;
   onOpenTrack: () => void;
+  wallet?: UserWallet;
+  onOpenAddMoney: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,6 +21,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTab,
   onOpenOrderModal,
   onOpenTrack,
+  wallet = { phone: '01700000000', balance: 0 },
+  onOpenAddMoney,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = translations[lang];
@@ -113,12 +117,34 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Zone 3: Actions (Language Switcher, Admin Button & Primary CTA) */}
+          {/* Zone 3: Actions (Wallet, Language Switcher, Admin Button & Primary CTA) */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* Personal Wallet Balance & Add Money */}
+            <button
+              onClick={onOpenAddMoney}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-purple-500/15 to-emerald-500/15 border border-amber-500/40 hover:border-amber-400 text-amber-300 hover:text-white transition-all shadow-sm hover:shadow-amber-500/20 group cursor-pointer"
+              title={lang === 'bn' ? 'ব্যক্তিগত ব্যালেন্স ও অ্যাড মানি' : 'Personal Balance & Add Money'}
+            >
+              <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 text-black flex items-center justify-center font-black text-xs shadow-sm">
+                ৳
+              </div>
+              <div className="flex flex-col text-left leading-none">
+                <span className="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-amber-200">
+                  {lang === 'bn' ? 'AG ব্যালেন্স' : 'AG Balance'}
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-emerald-400">
+                  ৳{wallet.balance.toLocaleString()}
+                </span>
+              </div>
+              <span className="hidden sm:inline-block text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 group-hover:bg-amber-400 group-hover:text-black transition-colors ml-0.5">
+                + {lang === 'bn' ? 'অ্যাড' : 'Add'}
+              </span>
+            </button>
+
             {/* Language Switcher */}
             <button
               onClick={onToggleLang}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-purple-950/40 border border-purple-800/40 text-purple-200 hover:bg-purple-900/50 transition-colors whitespace-nowrap cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg bg-purple-950/40 border border-purple-800/40 text-purple-200 hover:bg-purple-900/50 transition-colors whitespace-nowrap cursor-pointer"
               title="Change Language"
             >
               <Globe className="w-3.5 h-3.5 text-purple-400" />
@@ -138,10 +164,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Primary CTA */}
             <button
               onClick={onOpenOrderModal}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-lg hover:from-purple-500 hover:to-pink-500 active:scale-95 transition-all shadow-md shadow-purple-900/40 whitespace-nowrap cursor-pointer"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-lg hover:from-purple-500 hover:to-pink-500 active:scale-95 transition-all shadow-md shadow-purple-900/40 whitespace-nowrap cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4" />
-              <span>{t.btnOrderNow}</span>
+              <span className="hidden sm:inline">{t.btnOrderNow}</span>
+              <span className="sm:hidden">{lang === 'bn' ? 'অর্ডার' : 'Order'}</span>
             </button>
 
             {/* Mobile Menu Button */}
@@ -158,7 +185,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-[#0d071f] border-b border-purple-900/40 px-4 pt-2 pb-5 space-y-1.5 shadow-2xl">
+        <div className="lg:hidden bg-[#0d071f] border-b border-purple-900/40 px-4 pt-3 pb-5 space-y-2 shadow-2xl">
+          {/* Mobile Wallet Card */}
+          <div className="p-3 rounded-xl bg-gradient-to-r from-amber-950/40 via-purple-950/40 to-emerald-950/40 border border-amber-500/40 flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-black flex items-center justify-center font-black text-sm shadow">
+                ৳
+              </div>
+              <div>
+                <div className="text-[11px] text-slate-400">{lang === 'bn' ? 'ব্যক্তিগত ব্যালেন্স (Site Currency)' : 'Personal Site Balance'}</div>
+                <div className="text-base font-black font-mono text-emerald-400">
+                  ৳{wallet.balance.toLocaleString()} <span className="text-xs text-slate-300 font-sans">AG Coins</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenAddMoney();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              + {lang === 'bn' ? 'অ্যাড মানি' : 'Add Money'}
+            </button>
+          </div>
           <button
             onClick={() => handleNavClick('home')}
             className="block w-full text-left py-2 px-3 text-sm font-medium rounded-md hover:bg-purple-950/40 text-slate-200 cursor-pointer"

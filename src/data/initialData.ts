@@ -1,23 +1,15 @@
-import { DiamondPackage, Order, SiteConfig, StreamingServiceItem, StreamingSubscription } from '../types';
+import { AddMoneyRequest, DiamondPackage, Order, SiteConfig, StreamingServiceItem, StreamingSubscription, UserWallet } from '../types';
 
 export const DEFAULT_SITE_CONFIG: SiteConfig = {
   siteName: 'ARAFAT GAMING',
   bkashNumber: '01575630127',
   nagadNumber: '01575630127',
-  // bKash Automated Checkout API Gateway credentials
-  bkashGatewayEnabled: true,
-  bkashMode: 'sandbox',
-  bkashMerchantNumber: '01575630127',
-  bkashAppKey: 'bkash_sandbox_key_arafat_gaming_99',
-  bkashAppSecret: 'bkash_secret_live_sec_786arafat',
-  bkashUsername: 'arafat_merchant_user',
-  bkashPassword: '••••••••',
   whatsappNumber: '01575630127',
   supportHours: '9:00 AM - 12:00 AM (Everyday)',
   supportHoursBn: 'সকাল ৯:০০ - রাত ১২:০০ (প্রতিদিন)',
-  noticeEn: '⚡ Instant bKash Checkout Gateway, Free Fire Diamonds & Premium OTT Subscriptions Active!',
-  noticeBn: '⚡ বিকাশ অটোমেটেড গেটওয়ে পেমেন্ট, ফ্রি ফায়ার ডায়মন্ড ও প্রিমিয়াম ওটিটি সাবস্ক্রিপশন চালু আছে!',
-  adminPin: 'arafat786',
+  noticeEn: '⚡ Free Fire UID Diamond Top-Up (100 to 12,000 Diamonds) & OTT Subscriptions Active!',
+  noticeBn: '⚡ ফ্রি ফায়ার প্লেয়ার UID ডায়মন্ড টপ-আপ (১০০ থেকে ১২,০০০ ডায়মন্ড) ও ওটিটি সাবস্ক্রিপশন চালু আছে!',
+  adminPin: 'আরাফাত সনি এক এক দুই দুই',
   followerRatePer1k: 120, // 120 BDT per 1,000 FB followers
   instagramFollowerRatePer1k: 150, // 150 BDT per 1,000 IG followers
   fbMinFollowers: 1,
@@ -25,6 +17,7 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   igMinFollowers: 1,
   igMaxFollowers: 1000000,
 };
+
 
 export const INITIAL_STREAMING_CATALOG: StreamingServiceItem[] = [
   {
@@ -434,16 +427,6 @@ export const INITIAL_STREAMING_SUBSCRIPTIONS: StreamingSubscription[] = [
 
 export const INITIAL_PACKAGES: DiamondPackage[] = [
   {
-    id: 'pack-1',
-    name: '1 Diamond',
-    nameBn: '১ ডায়মন্ড',
-    diamonds: 1,
-    priceBdt: 15,
-    category: 'diamond',
-    badge: 'Event Special',
-    active: true,
-  },
-  {
     id: 'pack-25',
     name: '25 Diamonds',
     nameBn: '২৫ ডায়মন্ড',
@@ -462,6 +445,16 @@ export const INITIAL_PACKAGES: DiamondPackage[] = [
     active: true,
   },
   {
+    id: 'pack-100',
+    name: '100 Diamonds',
+    nameBn: '১০০ ডায়মন্ড',
+    diamonds: 100,
+    priceBdt: 55,
+    category: 'diamond',
+    badge: 'Starter',
+    active: true,
+  },
+  {
     id: 'pack-115',
     name: '115 Diamonds',
     nameBn: '১১৫ ডায়মন্ড',
@@ -473,69 +466,86 @@ export const INITIAL_PACKAGES: DiamondPackage[] = [
     active: true,
   },
   {
-    id: 'pack-240',
-    name: '240 Diamonds',
-    nameBn: '২৪০ ডায়মন্ড',
-    diamonds: 240,
-    priceBdt: 140,
+    id: 'pack-300',
+    name: '300 Diamonds',
+    nameBn: '৩০০ ডায়মন্ড',
+    diamonds: 300,
+    priceBdt: 160,
     category: 'diamond',
     active: true,
   },
   {
-    id: 'pack-355',
-    name: '355 Diamonds',
-    nameBn: '৩৫৫ ডায়মন্ড',
-    diamonds: 355,
-    priceBdt: 220,
-    category: 'diamond',
-    active: true,
-  },
-  {
-    id: 'pack-505',
-    name: '505 Diamonds',
-    nameBn: '৫০৫ ডায়মন্ড',
-    diamonds: 505,
-    priceBdt: 310,
+    id: 'pack-500',
+    name: '500 Diamonds',
+    nameBn: '৫০০ ডায়মন্ড',
+    diamonds: 500,
+    priceBdt: 265,
     category: 'diamond',
     popular: true,
     badge: 'Hot Deal',
     active: true,
   },
   {
-    id: 'pack-610',
-    name: '610 Diamonds',
-    nameBn: '৬১০ ডায়মন্ড',
-    diamonds: 610,
-    priceBdt: 380,
+    id: 'pack-1000',
+    name: '1,000 Diamonds',
+    nameBn: '১,০০০ ডায়মন্ড',
+    diamonds: 1000,
+    priceBdt: 520,
     category: 'diamond',
-    active: true,
-  },
-  {
-    id: 'pack-1090',
-    name: '1090 Diamonds',
-    nameBn: '১০৯০ ডায়মন্ড',
-    diamonds: 1090,
-    priceBdt: 690,
-    category: 'diamond',
+    popular: true,
     badge: 'Best Value',
     active: true,
   },
   {
-    id: 'pack-2180',
-    name: '2180 Diamonds',
-    nameBn: '২১৮০ ডায়মন্ড',
-    diamonds: 2180,
-    priceBdt: 1400,
+    id: 'pack-2000',
+    name: '2,000 Diamonds',
+    nameBn: '২,০০০ ডায়মন্ড',
+    diamonds: 2000,
+    priceBdt: 1020,
     category: 'diamond',
+    badge: 'Bonus +100',
     active: true,
   },
   {
-    id: 'pack-weekly-lite',
-    name: 'Weekly Lite Pass',
-    nameBn: 'উইকলি লাইট পাস',
-    diamonds: 'Lite Pass',
-    priceBdt: 30,
-    category: 'membership',
+    id: 'pack-5000',
+    name: '5,000 Diamonds',
+    nameBn: '৫,০০০ ডায়মন্ড',
+    diamonds: 5000,
+    priceBdt: 2500,
+    category: 'diamond',
+    popular: true,
+    badge: 'Mega Pack',
+    active: true,
+  },
+  {
+    id: 'pack-8000',
+    name: '8,000 Diamonds',
+    nameBn: '৮,০০০ ডায়মন্ড',
+    diamonds: 8000,
+    priceBdt: 3980,
+    category: 'diamond',
+    badge: 'Super Pro',
+    active: true,
+  },
+  {
+    id: 'pack-10000',
+    name: '10,000 Diamonds',
+    nameBn: '১০,০০০ ডায়মন্ড',
+    diamonds: 10000,
+    priceBdt: 4950,
+    category: 'diamond',
+    badge: 'VIP Elite',
+    active: true,
+  },
+  {
+    id: 'pack-12000',
+    name: '12,000 Diamonds',
+    nameBn: '১২,০০০ ডায়মন্ড',
+    diamonds: 12000,
+    priceBdt: 5900,
+    category: 'diamond',
+    popular: true,
+    badge: 'Maximum Pack · Best Rate',
     active: true,
   },
   {
@@ -566,7 +576,7 @@ export const INITIAL_PACKAGES: DiamondPackage[] = [
     diamonds: '802+ Diamonds',
     priceBdt: 130,
     category: 'special',
-    badge: 'Special',
+    badge: 'Special Pass',
     active: true,
   },
 ];
@@ -627,3 +637,80 @@ export const INITIAL_ORDERS: Order[] = [
     adminNote: 'Awaiting manual TrxID verification on bKash merchant/personal statement.',
   },
 ];
+
+export const DEFAULT_USER_WALLET: UserWallet = {
+  phone: '01712345678',
+  name: 'Tanvir Hossain',
+  balance: 350, // 350 AG Coins / ৳350 BDT initial balance
+};
+
+export const INITIAL_ADD_MONEY_REQUESTS: AddMoneyRequest[] = [
+  {
+    id: 'AM-912801',
+    userPhone: '01712345678',
+    userName: 'Tanvir Hossain',
+    amountBdt: 500,
+    paymentMethod: 'bkash',
+    senderNumber: '01712345678',
+    trxId: 'BKH9823174',
+    status: 'pending',
+    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    adminNote: 'Awaiting admin review of bKash personal Send Money.',
+  },
+  {
+    id: 'AM-912800',
+    userPhone: '01899123456',
+    userName: 'Shakil Ahmed',
+    amountBdt: 1000,
+    paymentMethod: 'nagad',
+    senderNumber: '01899123456',
+    trxId: 'NGD7639120',
+    status: 'pending',
+    createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    adminNote: 'Nagad deposit request submitted.',
+  },
+  {
+    id: 'AM-912799',
+    userPhone: '01712345678',
+    userName: 'Tanvir Hossain',
+    amountBdt: 350,
+    paymentMethod: 'bkash',
+    senderNumber: '01712345678',
+    trxId: 'BK67389102',
+    status: 'approved',
+    createdAt: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    adminNote: 'অনুমোদিত এবং ৳350 BDT ব্যালেন্সে যুক্ত করা হয়েছে।',
+  },
+];
+
+// Strict Admin Security Credentials
+export const ADMIN_PRIMARY_PASSWORD_BN = 'আরাফাত সনি এক এক দুই দুই';
+export const ADMIN_PRIMARY_PASSWORD_EN = 'Arafat Sony 1122';
+export const ADMIN_CUSTOM_PASSWORD_STORAGE_KEY = 'ag_admin_custom_password_v1';
+
+export const checkPasswordMatch = (input: string, target: string): boolean => {
+  if (!input || !target) return false;
+  const rawInput = input.trim();
+  const rawTarget = target.trim();
+  if (rawInput === rawTarget) return true;
+  // Normalized English check (case insensitive, uniform spaces)
+  const normInput = rawInput.toLowerCase().replace(/\s+/g, ' ');
+  const normTarget = rawTarget.toLowerCase().replace(/\s+/g, ' ');
+  return normInput === normTarget;
+};
+
+export const isValidAdminPassword = (input: string, customPassword?: string | null): boolean => {
+  if (!input) return false;
+  // If admin has set and saved a custom password
+  if (customPassword && customPassword.trim()) {
+    if (checkPasswordMatch(input, customPassword)) return true;
+  }
+  // Initial / default credentials
+  if (checkPasswordMatch(input, ADMIN_PRIMARY_PASSWORD_BN)) return true;
+  if (checkPasswordMatch(input, ADMIN_PRIMARY_PASSWORD_EN)) return true;
+  return false;
+};
+

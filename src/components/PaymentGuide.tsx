@@ -77,39 +77,29 @@ export const PaymentGuide: React.FC<PaymentGuideProps> = ({
               <div className="rounded-2xl bg-[#120724] border border-pink-900/40 p-5 sm:p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-base text-pink-400">
-                    বিকাশ পেমেন্ট গাইড (Automated & Manual)
+                    বিকাশ পার্সোনাল নম্বর (Send Money)
                   </div>
                   <button
-                    onClick={() => handleCopy(config.bkashMerchantNumber || config.bkashNumber, 'bkash')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#e2136e] text-white text-xs font-bold cursor-pointer"
+                    onClick={() => handleCopy(config.bkashNumber, 'bkash')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#e2136e] hover:bg-[#c90f61] text-white text-xs font-bold cursor-pointer transition-colors"
                   >
                     {copiedNumber === 'bkash' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedNumber === 'bkash' ? 'কপি হয়েছে' : (config.bkashMerchantNumber || config.bkashNumber)}</span>
+                    <span>{copiedNumber === 'bkash' ? 'কপি হয়েছে' : config.bkashNumber}</span>
                   </button>
                 </div>
 
                 <div className="space-y-3 text-xs text-slate-300">
-                  <div className="p-3 rounded-xl bg-pink-950/60 border border-pink-700/50 space-y-1 text-pink-200">
-                    <p className="font-bold text-white flex items-center gap-1.5">
-                      <span>⚡ ১-ক্লিক অটোমেটেড বিকাশ গেটওয়ে (সবচেয়ে সহজ):</span>
-                    </p>
-                    <p>১. চেকআউট ফর্মে <strong>"Pay with bKash"</strong> বাটনে ক্লিক করুন।</p>
-                    <p>২. বিকাশ পপআপে আপনার ১১ ডিজিটের বিকাশ অ্যাকাউন্ট নম্বর দিন।</p>
-                    <p>৩. বিকাশ থেকে SMS-এ আসা ভেরিফিকেশন কোড (OTP) ও পিন নম্বর দিয়ে নিশ্চিত করুন।</p>
-                    <p>৪. কোনো TrxID কপি বা টাইপ করা ছাড়াই তাৎক্ষণিক অর্ডার সম্পন্ন হবে!</p>
-                  </div>
-
-                  <p className="font-semibold text-white pt-1">📱 বিকল্প পদ্ধতি (ম্যানুয়াল সেন্ড মানি):</p>
+                  <p className="font-semibold text-white">📱 বিকাশ অ্যাপের মাধ্যমে:</p>
                   <ol className="list-decimal pl-5 space-y-1 text-slate-300">
                     <li>বিকাশ অ্যাপ ওপেন করে <strong>"Send Money"</strong> অপশনে যান।</li>
-                    <li>প্রাপক নম্বরে <strong>{config.bkashMerchantNumber || config.bkashNumber}</strong> দিন।</li>
+                    <li>প্রাপক নম্বরে <strong>{config.bkashNumber}</strong> পেস্ট করুন।</li>
                     <li>প্যাকেজের সঠিক টাকা লিখুন এবং পিন দিয়ে সেন্ড মানি নিশ্চিত করুন।</li>
-                    <li>SMS থেকে <strong>Transaction ID (TrxID)</strong> কপি করে ম্যানুয়াল ফর্মে দিন।</li>
+                    <li>ইনবক্স বা SMS থেকে প্রাপ্ত <strong>Transaction ID (TrxID)</strong> কপি করে অর্ডার ফর্মে দিন।</li>
                   </ol>
 
                   <p className="font-semibold text-white pt-1">📞 বাটন ফোনে ডায়াল কোডের মাধ্যমে:</p>
-                  <div className="p-2.5 rounded-lg bg-[#080210] font-mono-numbers text-xs text-purple-300">
-                    *247# ➔ 1. Send Money ➔ Enter Number: {config.bkashMerchantNumber || config.bkashNumber} ➔ Enter Amount ➔ Enter PIN
+                  <div className="p-2.5 rounded-lg bg-[#080210] font-mono text-xs text-purple-300">
+                    *247# ➔ 1. Send Money ➔ Enter Number: {config.bkashNumber} ➔ Enter Amount ➔ Enter PIN
                   </div>
                 </div>
               </div>
