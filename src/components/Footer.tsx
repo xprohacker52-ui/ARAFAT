@@ -126,13 +126,12 @@ export const Footer: React.FC<FooterProps> = ({
           {t.legalDisclaimer}
         </div>
 
-        {/* Bottom Bar */}
         <div className="pt-4 border-t border-purple-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
           <div>
-            © {new Date().getFullYear()} ARAFAT GAMING. {t.allRightsReserved}
+            © {new Date().getFullYear()} TopupPapa Style · ARAFAT GAMING. All rights reserved. Secure Admin Password Protected (আরাফাত সনি এক এক দুই দুই).
           </div>
-          <div>
-            Built for Bangladesh Free Fire Gamers · Fast & Trusted Top-Up
+          <div className="text-cyan-400 font-mono text-[10px]">
+            Fast & 100% Trusted Bangladesh Free Fire Diamond Top-Up Platform
           </div>
         </div>
       </div>

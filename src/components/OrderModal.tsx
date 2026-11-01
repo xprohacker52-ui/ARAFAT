@@ -15,6 +15,7 @@ import {
   Coins,
 } from 'lucide-react';
 import {
+  AuthUser,
   DiamondPackage,
   Language,
   Order,
@@ -51,6 +52,7 @@ interface OrderModalProps {
   initialPaymentMethod?: PaymentMethod;
   config: SiteConfig;
   wallet?: UserWallet;
+  currentUser?: AuthUser | null;
   onOpenAddMoney?: () => void;
   onDeductWallet?: (amount: number) => boolean;
   onSubmitOrder: (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'adminNote'>) => Promise<string>;
@@ -68,6 +70,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   initialPaymentMethod = 'bkash',
   config,
   wallet,
+  currentUser = null,
   onOpenAddMoney,
   onDeductWallet,
   onSubmitOrder,
@@ -108,30 +111,52 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   // Base rates for followers
   const fbRatePer1k = config.followerRatePer1k || 120;
   const igRatePer1k = config.instagramFollowerRatePer1k || 150;
+  const fbLikesRate = config.fbLikesRatePer1k || 80;
+  const fbViewsRate = config.fbViewsRatePer1k || 50;
+  const igLikesRate = config.igLikesRatePer1k || 90;
+  const igViewsRate = config.igViewsRatePer1k || 60;
 
   // Sync state whenever activeSelection or selectedPackage updates
   useEffect(() => {
     if (activeSelection) {
       setServiceType(activeSelection.serviceType);
 
-      if (activeSelection.serviceType === 'free_fire') {
+      if (
+        activeSelection.serviceType === 'free_fire' ||
+        activeSelection.serviceType === 'mystery_box' ||
+        activeSelection.serviceType === 'bonus_offer' ||
+        activeSelection.serviceType === 'unipin_voucher' ||
+        activeSelection.serviceType === 'ff_likes'
+      ) {
         if (activeSelection.diamondPackage) {
           setPkgId(activeSelection.diamondPackage.id);
         }
         if (activeSelection.playerUid) {
           setPlayerUid(activeSelection.playerUid);
         }
-      } else if (activeSelection.serviceType === 'facebook_followers') {
+      } else if (
+        activeSelection.serviceType === 'facebook_followers' ||
+        activeSelection.serviceType === 'facebook_likes' ||
+        activeSelection.serviceType === 'facebook_views' ||
+        activeSelection.serviceType === 'instagram_followers' ||
+        activeSelection.serviceType === 'instagram_likes' ||
+        activeSelection.serviceType === 'instagram_views'
+      ) {
         const count = activeSelection.followerCount || 5000;
         setFollowerCount(count);
-        setFollowerPrice(activeSelection.followerPriceBdt || Math.round((count / 1000) * fbRatePer1k));
-        if (activeSelection.profileLink) {
-          setTargetAccountLink(activeSelection.profileLink);
-        }
-      } else if (activeSelection.serviceType === 'instagram_followers') {
-        const count = activeSelection.followerCount || 5000;
-        setFollowerCount(count);
-        setFollowerPrice(activeSelection.followerPriceBdt || Math.round((count / 1000) * igRatePer1k));
+        const rate =
+          activeSelection.serviceType === 'facebook_followers'
+            ? fbRatePer1k
+            : activeSelection.serviceType === 'facebook_likes'
+            ? fbLikesRate
+            : activeSelection.serviceType === 'facebook_views'
+            ? fbViewsRate
+            : activeSelection.serviceType === 'instagram_followers'
+            ? igRatePer1k
+            : activeSelection.serviceType === 'instagram_likes'
+            ? igLikesRate
+            : igViewsRate;
+        setFollowerPrice(activeSelection.followerPriceBdt || Math.round((count / 1000) * rate));
         if (activeSelection.profileLink) {
           setTargetAccountLink(activeSelection.profileLink);
         }
@@ -139,18 +164,30 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         setSelectedSub(activeSelection.subscription);
       }
     } else if (selectedPackage) {
-      setServiceType('free_fire');
+      setServiceType(
+        selectedPackage.category === 'mystery_box'
+          ? 'mystery_box'
+          : selectedPackage.category === 'bonus_offer'
+          ? 'bonus_offer'
+          : selectedPackage.category === 'unipin'
+          ? 'unipin_voucher'
+          : selectedPackage.category === 'ff_likes'
+          ? 'ff_likes'
+          : 'free_fire'
+      );
       setPkgId(selectedPackage.id);
     } else if (packages.length > 0 && !pkgId) {
       setPkgId(packages[0].id);
     }
-  }, [activeSelection, selectedPackage, packages, fbRatePer1k, igRatePer1k]);
+  }, [activeSelection, selectedPackage, packages, fbRatePer1k, igRatePer1k, fbLikesRate, fbViewsRate, igLikesRate, igViewsRate]);
 
   useEffect(() => {
-    if (initialPaymentMethod) {
-      setPaymentMethod(initialPaymentMethod);
+    if (currentUser && isOpen) {
+      if (currentUser.name && !customerName) setCustomerName(currentUser.name);
+      if (currentUser.email && !customerEmail) setCustomerEmail(currentUser.email);
+      if (currentUser.phone && !contactNumber) setContactNumber(currentUser.phone);
     }
-  }, [initialPaymentMethod]);
+  }, [currentUser, isOpen]);
 
   if (!isOpen) return null;
 
@@ -162,7 +199,13 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   let orderQuantityOrPlan: string | number = '';
   let finalAmountBdt = 0;
 
-  if (serviceType === 'free_fire') {
+  if (
+    serviceType === 'free_fire' ||
+    serviceType === 'mystery_box' ||
+    serviceType === 'bonus_offer' ||
+    serviceType === 'unipin_voucher' ||
+    serviceType === 'ff_likes'
+  ) {
     orderTitle = currentPkg ? currentPkg.name : 'Free Fire Diamonds';
     orderTitleBn = currentPkg ? currentPkg.nameBn : 'ফ্রি ফায়ার ডায়মন্ড';
     orderQuantityOrPlan = currentPkg ? currentPkg.diamonds : 'UID Top-Up';
@@ -172,10 +215,30 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     orderTitleBn = `${followerCount.toLocaleString()} ফেসবুক ফলোয়ার্স`;
     orderQuantityOrPlan = `${followerCount.toLocaleString()} Followers`;
     finalAmountBdt = followerPrice;
+  } else if (serviceType === 'facebook_likes') {
+    orderTitle = `${followerCount.toLocaleString()} Facebook Likes`;
+    orderTitleBn = `${followerCount.toLocaleString()} ফেসবুক লাইক`;
+    orderQuantityOrPlan = `${followerCount.toLocaleString()} Likes`;
+    finalAmountBdt = followerPrice;
+  } else if (serviceType === 'facebook_views') {
+    orderTitle = `${followerCount.toLocaleString()} Facebook Video Views`;
+    orderTitleBn = `${followerCount.toLocaleString()} ফেসবুক ভিডিও ভিউজ`;
+    orderQuantityOrPlan = `${followerCount.toLocaleString()} Views`;
+    finalAmountBdt = followerPrice;
   } else if (serviceType === 'instagram_followers') {
     orderTitle = `${followerCount.toLocaleString()} Instagram Followers`;
     orderTitleBn = `${followerCount.toLocaleString()} ইনস্টাগ্রাম ফলোয়ার্স`;
     orderQuantityOrPlan = `${followerCount.toLocaleString()} Followers`;
+    finalAmountBdt = followerPrice;
+  } else if (serviceType === 'instagram_likes') {
+    orderTitle = `${followerCount.toLocaleString()} Instagram Likes`;
+    orderTitleBn = `${followerCount.toLocaleString()} ইনস্টাগ্রাম লাইক`;
+    orderQuantityOrPlan = `${followerCount.toLocaleString()} Likes`;
+    finalAmountBdt = followerPrice;
+  } else if (serviceType === 'instagram_views') {
+    orderTitle = `${followerCount.toLocaleString()} Instagram Reels Views`;
+    orderTitleBn = `${followerCount.toLocaleString()} ইনস্টাগ্রাম রিলস ভিউজ`;
+    orderQuantityOrPlan = `${followerCount.toLocaleString()} Views`;
     finalAmountBdt = followerPrice;
   } else if (serviceType === 'streaming_subscription') {
     orderTitle = selectedSub ? selectedSub.title : 'Streaming Subscription';
@@ -256,12 +319,17 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     let finalTargetLink = '';
     let finalCustomerEmail = customerEmail.trim();
 
-    if (serviceType === 'free_fire') {
+    if (
+      serviceType === 'free_fire' ||
+      serviceType === 'mystery_box' ||
+      serviceType === 'bonus_offer' ||
+      serviceType === 'ff_likes'
+    ) {
       const cleanUid = playerUid.trim();
       if (!cleanUid) {
         return {
           valid: false,
-          error: lang === 'bn' ? 'অনুগ্রহ করে আপনার Free Fire Player UID দিন।' : 'Player UID is required for Free Fire top-up.',
+          error: lang === 'bn' ? 'অনুগ্রহ করে আপনার Free Fire Player UID দিন।' : 'Player UID is required.',
         };
       }
       if (!/^\d{5,14}$/.test(cleanUid)) {
@@ -271,34 +339,52 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         };
       }
       finalPlayerUid = cleanUid;
-    } else if (serviceType === 'facebook_followers') {
+    } else if (serviceType === 'unipin_voucher') {
+      const cleanId = playerUid.trim() || targetAccountLink.trim();
+      if (!cleanId || cleanId.length < 3) {
+        return {
+          valid: false,
+          error: lang === 'bn' ? 'অনুগ্রহ করে আপনার ইন্দোনেশিয়া গেম আইডি বা ডেলিভারি ইমেইল দিন।' : 'Please enter your Indo Game ID or delivery email.',
+        };
+      }
+      finalPlayerUid = cleanId;
+      finalTargetLink = cleanId;
+    } else if (
+      serviceType === 'facebook_followers' ||
+      serviceType === 'facebook_likes' ||
+      serviceType === 'facebook_views'
+    ) {
       const cleanLink = targetAccountLink.trim();
       if (!cleanLink) {
         return {
           valid: false,
-          error: lang === 'bn' ? 'অনুগ্রহ করে আপনার ফেসবুক প্রোফাইল বা পেজ লিংক (URL) দিন।' : 'Please provide your Facebook Profile or Page link.',
+          error: lang === 'bn' ? 'অনুগ্রহ করে আপনার ফেসবুক প্রোফাইল, পেজ বা পোস্ট লিংক (URL) দিন।' : 'Please provide your Facebook Profile, Page or Post link.',
         };
       }
       if (followerCount < 1 || followerCount > 1000000) {
         return {
           valid: false,
-          error: lang === 'bn' ? 'ফলোয়ার সংখ্যা ১ থেকে ১০,০০,০০০ (১ মিলিয়ন) এর মধ্যে হতে হবে।' : 'Follower quantity must be between 1 and 1,000,000.',
+          error: lang === 'bn' ? 'পরিমাণ ১ থেকে ১০,০০,০০০ (১ মিলিয়ন) এর মধ্যে হতে হবে।' : 'Quantity must be between 1 and 1,000,000.',
         };
       }
       finalTargetLink = cleanLink;
       finalPlayerUid = cleanLink;
-    } else if (serviceType === 'instagram_followers') {
+    } else if (
+      serviceType === 'instagram_followers' ||
+      serviceType === 'instagram_likes' ||
+      serviceType === 'instagram_views'
+    ) {
       const cleanLink = targetAccountLink.trim();
       if (!cleanLink) {
         return {
           valid: false,
-          error: lang === 'bn' ? 'অনুগ্রহ করে আপনার ইনস্টাগ্রাম ইউজারনেম বা প্রোফাইল লিংক দিন।' : 'Please provide your Instagram username or profile link.',
+          error: lang === 'bn' ? 'অনুগ্রহ করে আপনার ইনস্টাগ্রাম ইউজারনেম, প্রোফাইল বা রিলস লিংক দিন।' : 'Please provide your Instagram username, profile or reel link.',
         };
       }
       if (followerCount < 1 || followerCount > 1000000) {
         return {
           valid: false,
-          error: lang === 'bn' ? 'ফলোয়ার সংখ্যা ১ থেকে ১০,০০,০০০ (১ মিলিয়ন) এর মধ্যে হতে হবে।' : 'Follower quantity must be between 1 and 1,000,000.',
+          error: lang === 'bn' ? 'পরিমাণ ১ থেকে ১০,০০,০০০ (১ মিলিয়ন) এর মধ্যে হতে হবে।' : 'Quantity must be between 1 and 1,000,000.',
         };
       }
       finalTargetLink = cleanLink;

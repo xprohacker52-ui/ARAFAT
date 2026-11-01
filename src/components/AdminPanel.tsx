@@ -46,6 +46,7 @@ import {
   Language,
   Order,
   OrderStatus,
+  PackageCategory,
   SiteConfig,
   StreamingServiceItem,
   UserWallet,
@@ -163,6 +164,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // -------------------------------------------------------------
   const [fbRateInput, setFbRateInput] = useState(config.followerRatePer1k || 120);
   const [igRateInput, setIgRateInput] = useState(config.instagramFollowerRatePer1k || 150);
+  const [fbLikesRateInput, setFbLikesRateInput] = useState(config.fbLikesRatePer1k || 80);
+  const [fbViewsRateInput, setFbViewsRateInput] = useState(config.fbViewsRatePer1k || 50);
+  const [igLikesRateInput, setIgLikesRateInput] = useState(config.igLikesRatePer1k || 90);
+  const [igViewsRateInput, setIgViewsRateInput] = useState(config.igViewsRatePer1k || 60);
   const [fbMinFollowers, setFbMinFollowers] = useState(config.fbMinFollowers || 1);
   const [fbMaxFollowers, setFbMaxFollowers] = useState(config.fbMaxFollowers || 1000000);
   const [igMinFollowers, setIgMinFollowers] = useState(config.igMinFollowers || 1);
@@ -176,12 +181,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onUpdateConfig({
       followerRatePer1k: Number(fbRateInput),
       instagramFollowerRatePer1k: Number(igRateInput),
+      fbLikesRatePer1k: Number(fbLikesRateInput),
+      fbViewsRatePer1k: Number(fbViewsRateInput),
+      igLikesRatePer1k: Number(igLikesRateInput),
+      igViewsRatePer1k: Number(igViewsRateInput),
       fbMinFollowers: Number(fbMinFollowers),
       fbMaxFollowers: Number(fbMaxFollowers),
       igMinFollowers: Number(igMinFollowers),
       igMaxFollowers: Number(igMaxFollowers),
     });
-    triggerSaveToast('সোশ্যাল ফলোয়ার্স মূল্য সফলভাবে আপডেট করা হয়েছে!');
+    triggerSaveToast('সোশ্যাল ফলোয়ার্স, লাইক ও ভিউজ মূল্য সফলভাবে আপডেট করা হয়েছে!');
   };
 
   // -------------------------------------------------------------
@@ -286,7 +295,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [pkgNameBn, setPkgNameBn] = useState('');
   const [pkgDiamonds, setPkgDiamonds] = useState<string | number>('');
   const [pkgPrice, setPkgPrice] = useState<number>(0);
-  const [pkgCategory, setPkgCategory] = useState<'diamond' | 'membership' | 'special'>('diamond');
+  const [pkgCategory, setPkgCategory] = useState<PackageCategory>('diamond');
   const [pkgBadge, setPkgBadge] = useState('');
   const [showAddPkgModal, setShowAddPkgModal] = useState(false);
 
@@ -347,6 +356,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editWhatsapp, setEditWhatsapp] = useState(config.whatsappNumber);
   const [editNoticeBn, setEditNoticeBn] = useState(config.noticeBn);
   const [editNoticeEn, setEditNoticeEn] = useState(config.noticeEn);
+  const [editTopNoticeBn, setEditTopNoticeBn] = useState(config.topNoticeBn || '');
+  const [editTelegram, setEditTelegram] = useState(config.telegramLink || 'https://t.me/ArafatGamingSupport');
+  const [editTelegramGroup, setEditTelegramGroup] = useState(config.telegramGroupLink || 'https://t.me/ArafatGamingGroup');
   const [editSupportHours, setEditSupportHours] = useState(config.supportHours);
   const [editSupportHoursBn, setEditSupportHoursBn] = useState(config.supportHoursBn);
 
@@ -358,10 +370,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       whatsappNumber: editWhatsapp.trim(),
       noticeBn: editNoticeBn.trim(),
       noticeEn: editNoticeEn.trim(),
+      topNoticeBn: editTopNoticeBn.trim(),
+      telegramLink: editTelegram.trim(),
+      telegramGroupLink: editTelegramGroup.trim(),
       supportHours: editSupportHours.trim(),
       supportHoursBn: editSupportHoursBn.trim(),
     });
-    triggerSaveToast('বিকাশ, নগদ ও হেল্পলাইন সেটিংস সফলভাবে সেভ হয়েছে!');
+    triggerSaveToast('বিকাশ, নগদ, টেলিগ্রাম ও হেল্পলাইন সেটিংস সফলভাবে সেভ হয়েছে!');
   };
 
 
@@ -468,6 +483,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const pendingOrders = orders.filter((o) => o.status === 'pending').length;
   const processingOrders = orders.filter((o) => o.status === 'processing').length;
   const completedOrders = orders.filter((o) => o.status === 'completed').length;
+  const cancelledOrders = orders.filter((o) => o.status === 'cancelled').length;
   const totalRevenue = orders
     .filter((o) => o.status === 'completed')
     .reduce((sum, o) => sum + (o.amountBdt || 0), 0);
@@ -764,7 +780,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {activeTab === 'overview' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
               <div className="bg-[#110724] border border-purple-800/40 rounded-2xl p-4 shadow-lg">
                 <div className="flex items-center justify-between text-xs text-purple-300 font-medium mb-1">
                   <span>মোট বিক্রয় আয়</span>
@@ -809,7 +825,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="text-[10px] text-slate-400 mt-1">ডেলিভারি কাজ চলছে</div>
               </div>
 
-              <div className="bg-[#110724] border border-emerald-800/40 rounded-2xl p-4 shadow-lg col-span-2 sm:col-span-1">
+              <div className="bg-[#110724] border border-emerald-800/40 rounded-2xl p-4 shadow-lg">
                 <div className="flex items-center justify-between text-xs text-emerald-300 font-medium mb-1">
                   <span>কমপ্লিটেড অর্ডার</span>
                   <CheckCircle className="w-4 h-4 text-emerald-400" />
@@ -818,6 +834,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   {completedOrders}
                 </div>
                 <div className="text-[10px] text-emerald-300/80 mt-1">সফলভাবে ডেলিভার্ড</div>
+              </div>
+
+              <div className="bg-[#110724] border border-orange-800/40 rounded-2xl p-4 shadow-lg">
+                <div className="flex items-center justify-between text-xs text-orange-300 font-medium mb-1">
+                  <span>বাতিল অর্ডার</span>
+                  <XCircle className="w-4 h-4 text-orange-400" />
+                </div>
+                <div className="text-xl sm:text-2xl font-black font-mono text-orange-400">
+                  {cancelledOrders}
+                </div>
+                <div className="text-[10px] text-orange-300/80 mt-1">ক্যানসেলড / রিফান্ডেড</div>
               </div>
             </div>
 
@@ -2250,7 +2277,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                   <span className="text-xs font-bold text-slate-400">স্ট্যাটাস:</span>
-                  {['all', 'pending', 'processing', 'completed', 'rejected'].map((st) => (
+                  {['all', 'pending', 'processing', 'completed', 'cancelled', 'rejected'].map((st) => (
                     <button
                       key={st}
                       type="button"
@@ -2363,10 +2390,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           </td>
 
                           <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-wrap">
                               <span className="uppercase text-[10px] font-black px-1.5 py-0.5 rounded bg-purple-950 text-purple-300">
                                 {ord.paymentMethod}
                               </span>
+                              {ord.refunded && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-950/80 text-orange-400 border border-orange-800/60">
+                                  রিফান্ডেড
+                                </span>
+                              )}
                             </div>
                             <div className="font-mono text-slate-300 flex items-center gap-1 mt-1">
                               <span className="font-bold text-xs">{ord.trxId}</span>
@@ -2393,6 +2425,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                   ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600'
                                   : ord.status === 'processing'
                                   ? 'bg-blue-950/80 text-blue-300 border-blue-600'
+                                  : ord.status === 'cancelled'
+                                  ? 'bg-orange-950/80 text-orange-300 border-orange-600'
                                   : ord.status === 'rejected'
                                   ? 'bg-rose-950/80 text-rose-300 border-rose-600'
                                   : 'bg-amber-950/80 text-amber-300 border-amber-600'
@@ -2401,6 +2435,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               <option value="pending">Pending</option>
                               <option value="processing">Processing</option>
                               <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
                               <option value="rejected">Rejected</option>
                             </select>
                           </td>
@@ -2421,21 +2456,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           </td>
 
                           <td className="py-3.5 px-4 text-right">
-                            {onDeleteOrder && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (confirm(`আপনি কি সত্যিই অর্ডার ${ord.id} মুছে ফেলতে চান?`)) {
-                                    onDeleteOrder(ord.id);
-                                    triggerSaveToast('অর্ডার ডিলিট করা হয়েছে!');
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-950/60 border border-rose-900/40 cursor-pointer"
-                                title="Delete Order"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
+                            <div className="flex items-center justify-end gap-1.5">
+                              {ord.status !== 'cancelled' && ord.status !== 'completed' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const refundMsg = ord.paymentMethod === 'wallet' && !ord.refunded
+                                      ? '\n\n💡 এই অর্ডারটি ওয়ালেটের মাধ্যমে পেইড ছিল, বাতিল করলে সাথে সাথে ব্যালেন্স রিফান্ড হবে।'
+                                      : '';
+                                    if (confirm(`আপনি কি সত্যিই অর্ডার #${ord.id} বাতিল (Cancel) করতে চান?${refundMsg}`)) {
+                                      onUpdateOrderStatus(ord.id, 'cancelled', 'অ্যাডমিন কর্তৃক অর্ডার বাতিল করা হয়েছে।');
+                                      triggerSaveToast(`অর্ডার #${ord.id} বাতিল করা হয়েছে!`);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-950/60 border border-amber-900/40 cursor-pointer transition-colors"
+                                  title="বাতিল করুন (Cancel Order)"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              {onDeleteOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm(`আপনি কি সত্যিই অর্ডার ${ord.id} মুছে ফেলতে চান?`)) {
+                                      onDeleteOrder(ord.id);
+                                      triggerSaveToast('অর্ডার ডিলিট করা হয়েছে!');
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-950/60 border border-rose-900/40 cursor-pointer transition-colors"
+                                  title="Delete Order"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -2571,15 +2626,43 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                      ওয়েবসাইট টপ নোটিশ / অ্যানাউন্সমেন্ট (English):
+                    <label className="block text-xs font-bold text-cyan-300 uppercase tracking-wider mb-1.5">
+                      TopupPapa স্টাইল ব্লু টিকার নোটিশ (ওয়েবসাইটের একদম উপরে স্ক্রলিং বার):
                     </label>
                     <textarea
                       rows={2}
-                      value={editNoticeEn}
-                      onChange={(e) => setEditNoticeEn(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-[#170c35] border border-purple-800/50 text-white text-xs"
+                      value={editTopNoticeBn}
+                      onChange={(e) => setEditTopNoticeBn(e.target.value)}
+                      placeholder="টপ টিকার নোটিশ টেক্সট লিখুন..."
+                      className="w-full px-3.5 py-2 rounded-xl bg-[#170c35] border border-cyan-800/50 text-white text-xs"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-sky-400 uppercase tracking-wider mb-1.5">
+                        টেলিগ্রাম সাপোর্ট লিংক (Telegram Support):
+                      </label>
+                      <input
+                        type="text"
+                        value={editTelegram}
+                        onChange={(e) => setEditTelegram(e.target.value)}
+                        placeholder="https://t.me/ArafatGamingSupport"
+                        className="w-full px-3.5 py-2 rounded-xl bg-[#170c35] border border-sky-800/50 text-white text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1.5">
+                        টেলিগ্রাম গ্রুপ লিংক (Telegram Community):
+                      </label>
+                      <input
+                        type="text"
+                        value={editTelegramGroup}
+                        onChange={(e) => setEditTelegramGroup(e.target.value)}
+                        placeholder="https://t.me/ArafatGamingGroup"
+                        className="w-full px-3.5 py-2 rounded-xl bg-[#170c35] border border-indigo-800/50 text-white text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

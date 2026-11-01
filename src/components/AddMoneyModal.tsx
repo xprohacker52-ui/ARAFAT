@@ -14,7 +14,7 @@ import {
   HelpCircle,
   Sparkles,
 } from 'lucide-react';
-import { AddMoneyRequest, Language, SiteConfig, UserWallet } from '../types';
+import { AddMoneyRequest, AuthUser, Language, SiteConfig, UserWallet } from '../types';
 import { BkashLogo, NagadLogo } from './BrandLogos';
 
 interface AddMoneyModalProps {
@@ -24,6 +24,7 @@ interface AddMoneyModalProps {
   config: SiteConfig;
   wallet: UserWallet;
   requests: AddMoneyRequest[];
+  currentUser?: AuthUser | null;
   onSubmitAddMoney: (request: Omit<AddMoneyRequest, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'adminNote'>) => Promise<string>;
 }
 
@@ -34,14 +35,15 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
   config,
   wallet,
   requests,
+  currentUser = null,
   onSubmitAddMoney,
 }) => {
   const [activeTab, setActiveTab] = useState<'deposit' | 'history'>('deposit');
   const [paymentMethod, setPaymentMethod] = useState<'bkash' | 'nagad'>('bkash');
   const [amountBdt, setAmountBdt] = useState<number>(500);
   const [customAmountInput, setCustomAmountInput] = useState<string>('500');
-  const [userPhone, setUserPhone] = useState<string>(wallet.phone || '');
-  const [userName, setUserName] = useState<string>(wallet.name || '');
+  const [userPhone, setUserPhone] = useState<string>(currentUser?.phone || wallet.phone || '');
+  const [userName, setUserName] = useState<string>(currentUser?.name || wallet.name || '');
   const [senderNumber, setSenderNumber] = useState<string>('');
   const [trxId, setTrxId] = useState<string>('');
   const [copiedNumber, setCopiedNumber] = useState<boolean>(false);

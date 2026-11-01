@@ -2,15 +2,47 @@ export type Language = 'bn' | 'en';
 
 export type PaymentMethod = 'bkash' | 'nagad' | 'wallet';
 
-export type OrderStatus = 'pending' | 'processing' | 'completed' | 'rejected';
+export type OrderStatus = 'pending' | 'processing' | 'completed' | 'rejected' | 'cancelled';
 
-export type PackageCategory = 'diamond' | 'membership' | 'special';
+export type PackageCategory =
+  | 'diamond'
+  | 'membership'
+  | 'special'
+  | 'mystery_box'
+  | 'bonus_offer'
+  | 'unipin'
+  | 'ff_likes';
 
-export type ServiceType = 'free_fire' | 'facebook_followers' | 'instagram_followers' | 'streaming_subscription';
+export type ServiceType =
+  | 'free_fire'
+  | 'mystery_box'
+  | 'bonus_offer'
+  | 'unipin_voucher'
+  | 'ff_likes'
+  | 'facebook_followers'
+  | 'facebook_likes'
+  | 'facebook_views'
+  | 'instagram_followers'
+  | 'instagram_likes'
+  | 'instagram_views'
+  | 'streaming_subscription';
+
+export interface AuthUser {
+  id: string; // e.g. "AG-USR-82190"
+  name: string;
+  email: string;
+  avatar?: string;
+  phone?: string;
+  loginMethod: 'google' | 'phone' | 'email';
+  googleSub?: string;
+  createdAt: string;
+}
 
 export interface UserWallet {
   phone: string;
   name?: string;
+  email?: string;
+  avatar?: string;
   balance: number; // In AG Coins / BDT (1 AG Coin = ৳1 BDT)
 }
 
@@ -41,7 +73,9 @@ export interface DiamondPackage {
   bonus?: string;
   bonusBn?: string;
   badge?: string;
+  image?: string;
   active: boolean;
+  rewardsList?: string[];
 }
 
 export interface DurationOption {
@@ -112,6 +146,7 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   adminNote?: string;
+  refunded?: boolean;
 }
 
 export interface SiteConfig {
@@ -123,9 +158,18 @@ export interface SiteConfig {
   supportHoursBn: string;
   noticeEn: string;
   noticeBn: string;
+  topNoticeBn?: string;
+  topNoticeEn?: string;
+  telegramLink?: string;
+  telegramGroupLink?: string;
+  facebookGroupLink?: string;
   adminPin: string;
   followerRatePer1k: number; // e.g. 120 BDT
   instagramFollowerRatePer1k?: number; // e.g. 150 BDT
+  fbLikesRatePer1k?: number; // e.g. 80 BDT
+  fbViewsRatePer1k?: number; // e.g. 60 BDT
+  igLikesRatePer1k?: number; // e.g. 90 BDT
+  igViewsRatePer1k?: number; // e.g. 70 BDT
   fbMinFollowers?: number;
   fbMaxFollowers?: number;
   igMinFollowers?: number;

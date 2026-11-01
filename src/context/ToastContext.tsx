@@ -75,6 +75,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           message = note || 'অর্ডারটি বাতিল করা হয়েছে। ভুল TrxID বা তথ্যের জন্য হেল্পলাইনে যোগাযোগ করুন।';
           type = 'error';
           break;
+        case 'cancelled':
+          title = `অর্ডার বাতিল সম্পন্ন: ${orderId}`;
+          message = note || 'অর্ডারটি সফলভাবে বাতিল করা হয়েছে। ওয়ালেট দিয়ে পেমেন্ট করা থাকলে ব্যালেন্স রিফান্ড হয়েছে।';
+          type = 'warning';
+          break;
       }
 
       showToast({
@@ -156,6 +161,14 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void }> = ({ toas
           glowColor: 'shadow-red-950/70',
           badgeBg: 'bg-red-950/70 text-red-300 border-red-800/50',
           badgeLabel: 'Rejected',
+        };
+      case 'cancelled':
+        return {
+          icon: <XCircle className="w-5 h-5 text-orange-400 shrink-0" />,
+          borderColor: 'border-orange-500/50',
+          glowColor: 'shadow-orange-950/70',
+          badgeBg: 'bg-orange-950/70 text-orange-300 border-orange-800/50',
+          badgeLabel: 'Cancelled',
         };
       case 'pending':
       default:

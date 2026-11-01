@@ -41,3 +41,95 @@
 .neon-border-purple {
   border-color: rgba(168, 85, 247, 0.4);
 }
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 25s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Mystery Box Section Styles */
+.mystery-box-section {
+  position: relative;
+}
+
+.mystery-card {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.mystery-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 30px -10px rgba(245, 158, 11, 0.25);
+  border-color: rgba(251, 191, 36, 0.9);
+}
+
+.box-badge {
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.box-icon {
+  user-select: none;
+}
+
+.buy-box-btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.buy-box-btn:hover {
+  transform: scale(1.04);
+}
+
+.buy-box-btn:active {
+  transform: scale(0.96);
+}
+
+.confirm-buy-btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.confirm-buy-btn:hover {
+  transform: scale(1.02);
+}
+
+/* TopupPapa Style Category Navigation & Animations */
+.category-tabs {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  cursor: pointer;
+  transition: all 0.25s ease-in-out;
+  border-radius: 9999px;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.product-section-animate {
+  animation: tabFadeIn 0.35s ease-out forwards;
+}

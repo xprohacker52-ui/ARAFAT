@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   AddMoneyRequest,
+  AuthUser,
   DiamondPackage,
   Language,
   Order,
   OrderStatus,
+  PackageCategory,
   PaymentMethod,
+  ServiceType,
   SiteConfig,
   StreamingServiceItem,
   StreamingSubscription,
@@ -19,14 +22,18 @@ import {
   INITIAL_PACKAGES,
   INITIAL_STREAMING_CATALOG,
 } from './data/initialData';
+import { TopNoticeTicker } from './components/TopNoticeTicker';
 import { Navbar } from './components/Navbar';
-import { HeroSection } from './components/HeroSection';
+import { HeroBannerSlider } from './components/HeroBannerSlider';
+import { QuickSocialActions } from './components/QuickSocialActions';
 import { PaymentBanner } from './components/PaymentBanner';
-import { DiamondPackages } from './components/DiamondPackages';
-import { SocialFollowersSection } from './components/SocialFollowersSection';
-import { StreamingSubscriptions } from './components/StreamingSubscriptions';
+import { CategorizedProductGrid } from './components/CategorizedProductGrid';
+import { LiveRecentOrders } from './components/LiveRecentOrders';
+import { FloatingWidgets } from './components/FloatingWidgets';
 import { ActiveOrderSelection, OrderModal } from './components/OrderModal';
 import { AddMoneyModal } from './components/AddMoneyModal';
+import { AuthModal } from './components/AuthModal';
+import { UserProfileModal } from './components/UserProfileModal';
 import { OrderTracker } from './components/OrderTracker';
 import { HowToOrder } from './components/HowToOrder';
 import { PaymentGuide } from './components/PaymentGuide';
@@ -34,7 +41,6 @@ import { AdminPanel } from './components/AdminPanel';
 import { ContactSection } from './components/ContactSection';
 import { LegalModal } from './components/LegalModal';
 import { Footer } from './components/Footer';
-import { MessageCircle, ShoppingBag, Search } from 'lucide-react';
 import { ToastProvider, useToast } from './context/ToastContext';
 
 const STORAGE_KEYS = {
@@ -45,6 +51,7 @@ const STORAGE_KEYS = {
   STREAMING: 'arafat_gaming_streaming_services_v1',
   ADD_MONEY: 'arafat_gaming_add_money_requests_v1',
   USER_WALLET: 'arafat_gaming_user_wallet_v1',
+  CURRENT_USER: 'arafat_gaming_current_user_v1',
 };
 
 function MainApp() {
@@ -81,7 +88,17 @@ function MainApp() {
   const [packages, setPackages] = useState<DiamondPackage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PACKAGES);
-      return saved ? JSON.parse(saved) : INITIAL_PACKAGES;
+      if (saved) {
+        const parsed: DiamondPackage[] = JSON.parse(saved);
+        const hasNewPacks =
+          parsed.some((p) => p.id === 'pack-mystery-99' && Array.isArray(p.rewardsList)) &&
+          parsed.some((p) => p.id === 'pack-310');
+        if (!hasNewPacks) {
+          return INITIAL_PACKAGES;
+        }
+        return parsed;
+      }
+      return INITIAL_PACKAGES;
     } catch {
       return INITIAL_PACKAGES;
     }
@@ -127,10 +144,22 @@ function MainApp() {
     }
   });
 
+  // 8. Logged in Client / User Profile state (Single-click Google & email account)
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   // Navigation & Modals
   const [activeTab, setActiveTab] = useState<string>('home');
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [addMoneyModalOpen, setAddMoneyModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<DiamondPackage | null>(null);
   const [activeSelection, setActiveSelection] = useState<ActiveOrderSelection | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('bkash');
@@ -183,6 +212,16 @@ function MainApp() {
       localStorage.setItem(STORAGE_KEYS.ADD_MONEY, JSON.stringify(addMoneyRequests));
     } catch {}
   }, [addMoneyRequests]);
+
+  useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      }
+    } catch {}
+  }, [currentUser]);
 
   // Dynamic SEO Synchronization per section & language
   useEffect(() => {
@@ -292,9 +331,17 @@ function MainApp() {
     }
     const sectionMap: Record<string, string> = {
       home: 'hero-top',
-      packages: 'diamond-packages',
-      'facebook-followers': 'facebook-followers',
-      'streaming-subscriptions': 'streaming-subscriptions',
+      topup: 'topup-products',
+      uid: 'uid',
+      membership: 'membership',
+      packages: 'category-games',
+      games: 'category-games',
+      mystery: 'category-mystery',
+      subscriptions: 'category-subscriptions',
+      'social-boost': 'category-social',
+      'social-followers': 'category-social',
+      'facebook-followers': 'category-social',
+      'streaming-subscriptions': 'category-subscriptions',
       'how-to-order': 'how-to-order',
       payment: 'payment-methods',
       contact: 'contact',
@@ -312,9 +359,21 @@ function MainApp() {
   ): Promise<string> => {
     const randomNum = Math.floor(100000 + Math.random() * 900000);
     const prefix =
-      orderData.serviceType === 'facebook_followers'
+      orderData.serviceType === 'mystery_box'
+        ? 'MYS'
+        : orderData.serviceType === 'bonus_offer'
+        ? 'BON'
+        : orderData.serviceType === 'unipin_voucher'
+        ? 'UNI'
+        : orderData.serviceType === 'ff_likes'
+        ? 'LIK'
+        : orderData.serviceType === 'facebook_followers' ||
+          orderData.serviceType === 'facebook_likes' ||
+          orderData.serviceType === 'facebook_views'
         ? 'FB'
-        : orderData.serviceType === 'instagram_followers'
+        : orderData.serviceType === 'instagram_followers' ||
+          orderData.serviceType === 'instagram_likes' ||
+          orderData.serviceType === 'instagram_views'
         ? 'IG'
         : orderData.serviceType === 'streaming_subscription'
         ? 'SUB'
@@ -329,10 +388,18 @@ function MainApp() {
       createdAt: now,
       updatedAt: now,
       adminNote:
-        orderData.serviceType === 'facebook_followers'
-          ? 'ফেসবুক ফলোয়ার্স অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
-          : orderData.serviceType === 'instagram_followers'
-          ? 'ইনস্টাগ্রাম ফলোয়ার্স অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
+        orderData.serviceType === 'mystery_box'
+          ? 'লাকি মিস্ট্রি বক্স অর্ডার পেন্ডিং। TrxID যাচাই করার পর ডায়মন্ড ও রিওয়ার্ড পাঠানো হবে।'
+          : orderData.serviceType === 'bonus_offer'
+          ? 'মেগা বোনাস টপ-আপ অর্ডার পেন্ডিং। TrxID যাচাই সম্পন্ন হলে ডায়মন্ড ক্রেডিটেড হবে।'
+          : orderData.serviceType === 'ff_likes'
+          ? 'প্লেয়ার লাইক বুস্ট অর্ডার পেন্ডিং। TrxID ভেরিফাই হলে লাইক ডেলিভারি শুরু হবে।'
+          : orderData.serviceType === 'unipin_voucher'
+          ? 'ইন্দোনেশিয়া সার্ভার ইউনিপিন ভাউচার অর্ডার পেন্ডিং। ভাউচার পিন পাঠানো হবে।'
+          : orderData.serviceType === 'facebook_followers' || orderData.serviceType === 'facebook_likes' || orderData.serviceType === 'facebook_views'
+          ? 'ফেসবুক বুস্টিং অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
+          : orderData.serviceType === 'instagram_followers' || orderData.serviceType === 'instagram_likes' || orderData.serviceType === 'instagram_views'
+          ? 'ইনস্টাগ্রাম বুস্টিং অর্ডার পেন্ডিং আছে। TrxID যাচাই সম্পন্ন হলে কাজ শুরু হবে।'
           : orderData.serviceType === 'streaming_subscription'
           ? 'সাবস্ক্রিপশন অর্ডার পেন্ডিং আছে। TrxID যাচাই করে অ্যাকাউন্ট ক্রেডেনশিয়াল পাঠানো হবে।'
           : 'অর্ডার পেন্ডিং আছে। TrxID যাচাই করার পর ডায়মন্ড পাঠানো হবে।',
@@ -356,14 +423,29 @@ function MainApp() {
     return newOrderId;
   };
 
-  // Admin Actions with Real-Time Toast Notification Alert
+  // Admin Actions with Real-Time Toast Notification Alert & Automatic Wallet Refund
   const handleUpdateOrderStatus = (orderId: string, status: OrderStatus, note?: string) => {
+    const target = orders.find((o) => o.id === orderId);
+    let didRefund = false;
+    let refundAmount = 0;
+
+    // If changing to cancelled, check if paid with wallet and not yet refunded
+    if (status === 'cancelled' && target && target.paymentMethod === 'wallet' && !target.refunded) {
+      didRefund = true;
+      refundAmount = target.amountBdt;
+      setUserWallet((prev) => ({
+        ...prev,
+        balance: prev.balance + refundAmount,
+      }));
+    }
+
     setOrders((prev) =>
       prev.map((ord) => {
         if (ord.id === orderId) {
           return {
             ...ord,
             status,
+            refunded: ord.refunded || didRefund,
             adminNote: note !== undefined ? note : ord.adminNote,
             updatedAt: new Date().toISOString(),
           };
@@ -374,6 +456,73 @@ function MainApp() {
 
     // Trigger real-time snackbar toast notification!
     notifyOrderStatusChange(orderId, status, note, handleNavigateToTracking);
+
+    if (didRefund) {
+      showToast({
+        title: 'অর্ডার বাতিল ও রিফান্ড সম্পন্ন!',
+        message: `Order #${orderId} বাতিল করা হয়েছে এবং ৳${refundAmount.toLocaleString()} BDT অ্যাকাউন্ট ব্যালেন্সে রিফান্ড ক্রেডিট করা হয়েছে।`,
+        status: 'cancelled',
+        type: 'warning',
+        duration: 6000,
+      });
+    }
+  };
+
+  // User Order Cancellation Handler with Automatic Wallet Refund
+  const handleCancelOrder = async (orderId: string): Promise<boolean> => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return false;
+
+    if (targetOrder.status !== 'pending') {
+      showToast({
+        title: 'অর্ডার বাতিল সম্ভব নয়',
+        message: 'শুধুমাত্র পেন্ডিং (Pending) অবস্থায় থাকা অর্ডার বাতিল করা যাবে।',
+        status: 'rejected',
+        type: 'error',
+        duration: 4000,
+      });
+      return false;
+    }
+
+    let isRefunded = false;
+    if (targetOrder.paymentMethod === 'wallet' && !targetOrder.refunded) {
+      isRefunded = true;
+      setUserWallet((prev) => ({
+        ...prev,
+        balance: prev.balance + targetOrder.amountBdt,
+      }));
+    }
+
+    const cancelNote = 'গ্রাহক কর্তৃক অর্ডারটি বাতিল করা হয়েছে।';
+
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id === orderId) {
+          return {
+            ...ord,
+            status: 'cancelled',
+            refunded: ord.refunded || isRefunded,
+            adminNote: ord.adminNote ? `${ord.adminNote} (${cancelNote})` : cancelNote,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return ord;
+      })
+    );
+
+    notifyOrderStatusChange(orderId, 'cancelled', cancelNote, handleNavigateToTracking);
+
+    showToast({
+      title: 'অর্ডার সফলভাবে বাতিল করা হয়েছে',
+      message: isRefunded
+        ? `Order #${orderId} বাতিল হয়েছে এবং ৳${targetOrder.amountBdt.toLocaleString()} AG Coins আপনার ওয়ালেটে ফেরত দেওয়া হয়েছে!`
+        : `Order #${orderId} সফলভাবে বাতিল করা হয়েছে।`,
+      status: 'cancelled',
+      type: 'warning',
+      duration: 6000,
+    });
+
+    return true;
   };
 
   // Cross-tab real-time listener for order updates
@@ -524,6 +673,61 @@ function MainApp() {
     return true;
   };
 
+  // Google / Client User Auth Handlers
+  const handleLoginSuccess = (user: AuthUser) => {
+    setCurrentUser(user);
+    // Sync with wallet
+    setUserWallet((prev) => ({
+      ...prev,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      phone: user.phone || prev.phone,
+    }));
+
+    showToast({
+      title: lang === 'bn' ? '🎉 স্বাগতম!' : '🎉 Welcome!',
+      message:
+        lang === 'bn'
+          ? `${user.name}, আপনার ${user.loginMethod === 'google' ? 'Google' : ''} অ্যাকাউন্ট সফলভাবে সংযুক্ত হয়েছে!`
+          : `Signed in successfully as ${user.name}!`,
+      status: 'completed',
+      type: 'success',
+      duration: 5000,
+    });
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    showToast({
+      title: lang === 'bn' ? 'লগআউট সম্পন্ন' : 'Logged Out',
+      message:
+        lang === 'bn'
+          ? 'আপনি সফলভাবে অ্যাকাউন্ট থেকে লগআউট করেছেন।'
+          : 'You have been signed out successfully.',
+      status: 'cancelled',
+      type: 'info',
+      duration: 4000,
+    });
+  };
+
+  const handleUpdateUserPhone = (newPhone: string) => {
+    if (currentUser) {
+      setCurrentUser((prev) => (prev ? { ...prev, phone: newPhone } : null));
+    }
+    setUserWallet((prev) => ({ ...prev, phone: newPhone }));
+    showToast({
+      title: lang === 'bn' ? 'নম্বর সংরক্ষিত' : 'Phone Saved',
+      message:
+        lang === 'bn'
+          ? 'আপনার বিকাশ/নগদ লেনদেনের নম্বর সফলভাবে আপডেট হয়েছে।'
+          : 'Phone number updated successfully.',
+      status: 'completed',
+      type: 'success',
+      duration: 4000,
+    });
+  };
+
   const handleResetToDefaults = () => {
     setPackages(INITIAL_PACKAGES);
     setConfig(DEFAULT_SITE_CONFIG);
@@ -535,47 +739,89 @@ function MainApp() {
     } catch {}
   };
 
-  // Open modal preselected with package (Free Fire)
+  // Open modal preselected with package (Free Fire, Mystery Box, Bonus, Likes, UniPin)
   const handleSelectPackageForOrder = (pkg: DiamondPackage, playerUid?: string) => {
     setSelectedPackage(pkg);
+    const serviceType =
+      pkg.category === 'mystery_box'
+        ? 'mystery_box'
+        : pkg.category === 'bonus_offer'
+        ? 'bonus_offer'
+        : pkg.category === 'unipin'
+        ? 'unipin_voucher'
+        : pkg.category === 'ff_likes'
+        ? 'ff_likes'
+        : 'free_fire';
+
     setActiveSelection({
-      serviceType: 'free_fire',
+      serviceType,
       diamondPackage: pkg,
       playerUid,
     });
     setOrderModalOpen(true);
   };
 
-  // Open modal for Facebook Followers
-  const handleOrderFacebookFollowers = (followersCount: number, priceBdt: number, profileLink: string) => {
-    setSelectedPackage(null);
-    setActiveSelection({
-      serviceType: 'facebook_followers',
-      followerCount: followersCount,
-      followerPriceBdt: priceBdt,
-      profileLink,
-    });
-    setOrderModalOpen(true);
-  };
-
-  // Open modal for Instagram Followers
-  const handleOrderInstagramFollowers = (followersCount: number, priceBdt: number, profileLink: string) => {
-    setSelectedPackage(null);
-    setActiveSelection({
-      serviceType: 'instagram_followers',
-      followerCount: followersCount,
-      followerPriceBdt: priceBdt,
-      profileLink,
-    });
-    setOrderModalOpen(true);
-  };
-
   // Open modal for Streaming Subscriptions
-  const handleOrderSubscription = (sub: StreamingSubscription) => {
+  const handleSelectStreamingForOrder = (service: StreamingServiceItem, durationId?: string) => {
+    const selectedDur = durationId
+      ? service.durations.find((d) => d.id === durationId) || service.durations[0]
+      : service.durations[0];
+
+    const subItem: StreamingSubscription = {
+      id: `${service.id}-${selectedDur.id}`,
+      service: service.serviceKey,
+      title: `${service.name} (${selectedDur.durationLabel})`,
+      titleBn: `${service.nameBn} (${selectedDur.durationLabelBn})`,
+      duration: selectedDur.durationLabel,
+      durationBn: selectedDur.durationLabelBn,
+      typeBadge: selectedDur.savingsBadge || service.badge,
+      priceBdt: selectedDur.priceBdt,
+      features: service.features,
+      featuresBn: service.featuresBn,
+      active: true,
+    };
+
     setSelectedPackage(null);
     setActiveSelection({
       serviceType: 'streaming_subscription',
-      subscription: sub,
+      subscription: subItem,
+    });
+    setOrderModalOpen(true);
+  };
+
+  // Open modal for Social Media Boost Services (Followers, Likes, Views)
+  const handleSelectSocialService = (
+    service: 'fb_followers' | 'fb_likes' | 'fb_views' | 'ig_followers' | 'ig_likes' | 'ig_views'
+  ) => {
+    const defaultQty = service.includes('views') ? 10000 : 5000;
+    const rate =
+      service === 'fb_followers'
+        ? config.followerRatePer1k || 120
+        : service === 'fb_likes'
+        ? config.fbLikesRatePer1k || 80
+        : service === 'fb_views'
+        ? config.fbViewsRatePer1k || 50
+        : service === 'ig_followers'
+        ? config.instagramFollowerRatePer1k || 150
+        : service === 'ig_likes'
+        ? config.igLikesRatePer1k || 90
+        : config.igViewsRatePer1k || 60;
+
+    const calcPrice = Math.round((defaultQty / 1000) * rate);
+    const serviceTypeMap: Record<string, ServiceType> = {
+      fb_followers: 'facebook_followers',
+      fb_likes: 'facebook_likes',
+      fb_views: 'facebook_views',
+      ig_followers: 'instagram_followers',
+      ig_likes: 'instagram_likes',
+      ig_views: 'instagram_views',
+    };
+
+    setSelectedPackage(null);
+    setActiveSelection({
+      serviceType: serviceTypeMap[service],
+      followerCount: defaultQty,
+      followerPriceBdt: calcPrice,
     });
     setOrderModalOpen(true);
   };
@@ -595,8 +841,11 @@ function MainApp() {
   };
 
   return (
-    <div id="hero-top" className="min-h-screen bg-[#090514] text-slate-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
-      {/* Navigation Header */}
+    <div id="hero-top" className="min-h-screen bg-[#070314] text-slate-100 flex flex-col font-sans selection:bg-cyan-600 selection:text-white">
+      {/* 0. Top Notice Ticker Bar (TopupPapa Blue Ticker Line) */}
+      <TopNoticeTicker lang={lang} config={config} />
+
+      {/* 1. Header & Navigation */}
       <Navbar
         lang={lang}
         onToggleLang={toggleLanguage}
@@ -613,66 +862,68 @@ function MainApp() {
         }}
         wallet={userWallet}
         onOpenAddMoney={() => setAddMoneyModalOpen(true)}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setAuthModalOpen(true)}
+        onOpenProfileModal={() => setProfileModalOpen(true)}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1">
-        {/* 1. Hero Section */}
-        <HeroSection
+      <main className="flex-1 pb-16">
+        {/* 2. Banner Slider (Game Characters & Offers) */}
+        <HeroBannerSlider
           lang={lang}
-          config={config}
-          onExplorePackages={() => {
-            const el = document.getElementById('diamond-packages');
+          onExploreTopup={() => {
+            const el = document.getElementById('category-games');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}
-          onTrackOrder={() => {
-            const el = document.getElementById('track-order');
+          onExploreMystery={() => {
+            const el = document.getElementById('category-mystery');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onExploreSubscriptions={() => {
+            const el = document.getElementById('category-subscriptions');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}
         />
 
-        {/* 2. Payment Methods Banner (bKash, Nagad, Rocket & Bank/Card) */}
+        {/* 3. Quick Social Action Buttons (Telegram, Group, WhatsApp, Facebook) */}
+        <QuickSocialActions lang={lang} config={config} />
+
+        {/* 4. Payment Methods Banner (MFS & Site Wallet) */}
         <PaymentBanner
           lang={lang}
           config={config}
           onSelectPaymentMethodForOrder={handleSelectPaymentMethodForOrder}
         />
 
-        {/* 3. Diamond Packages Showcase (Free Fire) */}
-        <DiamondPackages
+        {/* 5. Categorized Product Grid Sections (TopupPapa Cards & Blue Badges) */}
+        <CategorizedProductGrid
           packages={packages}
-          lang={lang}
-          onSelectPackage={handleSelectPackageForOrder}
-        />
-
-        {/* 4. Social Media Followers Section (Facebook & Instagram) */}
-        <SocialFollowersSection
+          streamingServices={streamingServices}
           lang={lang}
           config={config}
-          onOrderFacebookFollowers={handleOrderFacebookFollowers}
-          onOrderInstagramFollowers={handleOrderInstagramFollowers}
+          onSelectDiamondPackage={handleSelectPackageForOrder}
+          onSelectSubscription={handleSelectStreamingForOrder}
+          onSelectSocialService={handleSelectSocialService}
         />
 
-        {/* 5. Social Media & Streaming Subscription Section */}
-        <StreamingSubscriptions
-          lang={lang}
-          streamingServices={streamingServices}
-          onOrderSubscription={handleOrderSubscription}
-        />
-
-        {/* 6. Real-time Order Tracking */}
+        {/* 6. Real-time Order Tracking & History with Cancel Feature */}
         <OrderTracker
           orders={orders}
           lang={lang}
           config={config}
           initialSearchId={trackingSearchId}
+          onCancelOrder={handleCancelOrder}
         />
 
-        {/* 7. How to Order Guide */}
+        {/* 7. Live Recent Orders Section */}
+        <LiveRecentOrders orders={orders} lang={lang} />
+
+        {/* 8. How to Order Guide */}
         <HowToOrder
           lang={lang}
           onGoToPackages={() => {
-            const el = document.getElementById('diamond-packages');
+            const el = document.getElementById('topup-products');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}
           onOpenOrderModal={() => {
@@ -682,14 +933,14 @@ function MainApp() {
           }}
         />
 
-        {/* 8. Payment Instructions */}
+        {/* 9. Payment Instructions */}
         <PaymentGuide
           lang={lang}
           config={config}
           onOpenOrderModal={() => setOrderModalOpen(true)}
         />
 
-        {/* 9. Contact Section */}
+        {/* 10. Contact Section */}
         <ContactSection lang={lang} config={config} />
       </main>
 
@@ -701,34 +952,16 @@ function MainApp() {
         onOpenLegal={(type) => setLegalModal({ isOpen: true, type })}
       />
 
-      {/* Floating Action Button (Mobile Friendly Fast Order & WhatsApp) */}
-      <div className="fixed bottom-5 right-4 z-40 flex flex-col gap-2.5 items-end">
-        {/* WhatsApp Chat Floating */}
-        <a
-          href={`https://wa.me/88${config.whatsappNumber}?text=${encodeURIComponent(
-            'আসসালামু আলাইকুম, আমি আরাফাত গেমিং থেকে সার্ভিস অর্ডার করতে চাই।'
-          )}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-12 h-12 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl shadow-emerald-950 flex items-center justify-center transition-transform hover:scale-110 active:scale-95 cursor-pointer"
-          title="WhatsApp Helpline"
-        >
-          <MessageCircle className="w-6 h-6" />
-        </a>
-
-        {/* Fast Order Button */}
-        <button
-          onClick={() => {
-            setSelectedPackage(null);
-            setActiveSelection({ serviceType: 'free_fire' });
-            setOrderModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 text-white font-bold text-xs sm:text-sm shadow-xl shadow-purple-950 hover:opacity-95 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
-        >
-          <ShoppingBag className="w-4 h-4" />
-          <span>{lang === 'bn' ? 'অর্ডার করুন' : 'Order Now'}</span>
-        </button>
-      </div>
+      {/* Floating Support & Bottom Promo Banner */}
+      <FloatingWidgets
+        lang={lang}
+        config={config}
+        onOpenOrderModal={() => {
+          setSelectedPackage(null);
+          setActiveSelection({ serviceType: 'free_fire' });
+          setOrderModalOpen(true);
+        }}
+      />
 
       {/* Unified Digital Checkout Order Modal */}
       <OrderModal
@@ -742,6 +975,7 @@ function MainApp() {
         initialPaymentMethod={selectedPaymentMethod}
         config={config}
         wallet={userWallet}
+        currentUser={currentUser}
         onOpenAddMoney={() => setAddMoneyModalOpen(true)}
         onDeductWallet={handleDeductWalletBalance}
         onSubmitOrder={handleSubmitOrder}
@@ -755,9 +989,40 @@ function MainApp() {
         lang={lang}
         config={config}
         wallet={userWallet}
+        currentUser={currentUser}
         requests={addMoneyRequests}
         onSubmitAddMoney={handleSubmitAddMoneyRequest}
       />
+
+      {/* Seamless Google Sign-In & Sign-Up Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        lang={lang}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* User Profile & Account Management Modal */}
+      {currentUser && (
+        <UserProfileModal
+          isOpen={profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          lang={lang}
+          user={currentUser}
+          wallet={userWallet}
+          onOpenAddMoney={() => {
+            setProfileModalOpen(false);
+            setAddMoneyModalOpen(true);
+          }}
+          onOpenTracking={() => {
+            setProfileModalOpen(false);
+            const el = document.getElementById('track-order');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onLogout={handleLogout}
+          onUpdatePhone={handleUpdateUserPhone}
+        />
+      )}
 
       {/* Comprehensive Admin Panel Modal */}
       {adminOpen && (
